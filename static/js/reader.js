@@ -39,6 +39,7 @@ const worker = new pdfjsLib.PDFWorker();
 let zoom = 1;
 let zoomTimer;
 let zoomPending = false;
+let pinch = null;
 let fastScrolling = false;
 let scrollIdleTimer;
 let lastScrollTop = pagesElement.scrollTop;
@@ -206,6 +207,8 @@ function prepareVisual(number, response, cache, sourceCanvas = null) {
       image.setAttribute('aria-hidden', 'true');
       image.src = url;
       try { await image.decode(); } catch (error) { URL.revokeObjectURL(url); throw error; }
+      // Do not change page geometry underneath an active two-finger gesture.
+      while (pinch) await pinch.finished;
       const anchor = captureAnchor();
       const shell = document.getElementById(`page-${number}`);
       pageSizes.set(number, natural);
@@ -436,7 +439,7 @@ function restoreAnchor(anchor) {
 }
 
 function updateActiveFromScroll() {
-  if (!pdf) return;
+  if (!pdf || pinch) return;
   const midpoint = pagesElement.getBoundingClientRect().top + pagesElement.clientHeight * 0.45;
   let low = 1;
   let high = pdf.numPages;
@@ -451,6 +454,7 @@ function updateActiveFromScroll() {
 
 let scrollScheduled = false;
 pagesElement.addEventListener('scroll', () => {
+  if (pinch) return;
   const now = performance.now();
   const distance = Math.abs(pagesElement.scrollTop - lastScrollTop);
   const elapsed = Math.max(1, now - lastScrollTime);
@@ -482,8 +486,8 @@ function scrollToPage(number) {
   requestPages();
 }
 
-function rerender(nextZoom = zoom, clientX, clientY) {
-  const anchor = captureAnchor(clientX, clientY);
+function rerender(nextZoom = zoom, clientX, clientY, savedAnchor = null) {
+  const anchor = savedAnchor || captureAnchor(clientX, clientY);
   const ratio = nextZoom / zoom;
   zoom = nextZoom;
   renderGeneration += 1;
@@ -611,9 +615,7 @@ next.addEventListener('click', () => scrollToPage(activePage + 1));
 pageInput.addEventListener('change', () => scrollToPage(pageInput.value));
 pageInput.addEventListener('blur', () => { pageInput.value = activePage; });
 zoomSelect.addEventListener('change', () => rerender(zoomSelect.value === 'fit' ? 1 : Number(zoomSelect.value)));
-function setBookZoom(value, x, y) {
-  value = Math.round(Math.max(0.5, Math.min(3, value)) * 100) / 100;
-  if (value === zoom) return;
+function updateZoomControl(value) {
   zoomSelect.querySelector('[data-custom]')?.remove();
   if (![...zoomSelect.options].some(option => option.value === String(value))) {
     const option = new Option(`${Math.round(value * 100)}%`, String(value));
@@ -621,30 +623,107 @@ function setBookZoom(value, x, y) {
     zoomSelect.add(option);
   }
   zoomSelect.value = String(value);
+}
+function setBookZoom(value, x, y) {
+  value = Math.round(Math.max(0.5, Math.min(3, value)) * 100) / 100;
+  if (value === zoom) return;
+  updateZoomControl(value);
   rerender(value, x, y);
 }
 
-let pinch = null;
 function touchPair(touches) {
   const [a, b] = touches;
   return { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
     x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
 }
+function beginPinch(pair) {
+  if (pinch) finishPinch();
+  clearTimeout(zoomTimer);
+  clearTimeout(scrollIdleTimer);
+  zoomPending = true;
+  renderGeneration++;
+  for (const job of rendering.values()) job.renderTask?.cancel();
+  const bounds = pagesElement.getBoundingClientRect();
+  const overlay = document.createElement('div');
+  overlay.className = 'pdf-pinch-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  Object.assign(overlay.style, { left: `${bounds.left}px`, top: `${bounds.top}px`,
+    width: `${bounds.width}px`, height: `${bounds.height}px` });
+  const surface = document.createElement('div');
+  surface.className = 'pdf-pinch-surface';
+  overlay.append(surface);
+  // Snapshot only the nearby area that could enter view at the minimum zoom.
+  // Never promote an entire 800-page book into one enormous GPU layer.
+  const reach = bounds.height * zoom / 0.5 * 2;
+  const snapshots = [];
+  const collect = number => {
+    const shell = document.getElementById(`page-${number}`);
+    const rect = shell.getBoundingClientRect();
+    if (rect.bottom < pair.y - reach || rect.top > pair.y + reach) return false;
+    const source = shell.querySelector('canvas') || shell.querySelector('.pdf-page-preview');
+    let copy;
+    if (source?.tagName === 'CANVAS') {
+      copy = document.createElement('canvas');
+      copy.width = source.width;
+      copy.height = source.height;
+      copy.getContext('2d').drawImage(source, 0, 0);
+    } else if (source) {
+      copy = source.cloneNode();
+    } else {
+      copy = document.createElement('div');
+      copy.textContent = `Página ${number}`;
+    }
+    copy.className = 'pdf-pinch-page';
+    Object.assign(copy.style, { left: `${rect.left - bounds.left}px`, top: `${rect.top - bounds.top}px`,
+      width: `${rect.width}px`, height: `${rect.height}px` });
+    snapshots.push(copy);
+    return true;
+  };
+  for (let number = activePage; number <= pdf.numPages && collect(number); number++);
+  for (let number = activePage - 1; number >= 1 && collect(number); number--);
+  surface.append(...snapshots);
+  let release;
+  pinch = { ...pair, zoom, value: zoom, latest: pair, bounds, overlay, surface,
+    anchor: captureAnchor(pair.x, pair.y), frame: null,
+    finished: new Promise(resolve => { release = resolve; }), release: () => release() };
+  root.append(overlay);
+}
+function paintPinch() {
+  if (!pinch) return;
+  pinch.frame = null;
+  const ratio = pinch.value / pinch.zoom;
+  const x = pinch.latest.x - pinch.bounds.left - (pinch.x - pinch.bounds.left) * ratio;
+  const y = pinch.latest.y - pinch.bounds.top - (pinch.y - pinch.bounds.top) * ratio;
+  // One compositor transform per frame: no page sizing, PDF render or layout reads.
+  pinch.surface.style.transform = `translate3d(${x}px,${y}px,0) scale(${ratio})`;
+}
+function finishPinch() {
+  if (!pinch) return;
+  const gesture = pinch;
+  cancelAnimationFrame(gesture.frame);
+  pinch = null;
+  const value = Math.round(gesture.value * 100) / 100;
+  updateZoomControl(value);
+  rerender(value, undefined, undefined, { ...gesture.anchor, x: gesture.latest.x, y: gesture.latest.y });
+  gesture.overlay.remove();
+  gesture.release();
+}
 pagesElement.addEventListener('touchstart', event => {
-  if (event.touches.length !== 2) return;
+  if (event.touches.length !== 2) { finishPinch(); return; }
   event.preventDefault();
-  const pair = touchPair(event.touches);
-  pinch = { ...pair, zoom };
+  beginPinch(touchPair(event.touches));
 }, { passive: false });
 pagesElement.addEventListener('touchmove', event => {
   if (event.touches.length !== 2) return;
   event.preventDefault();
   const pair = touchPair(event.touches);
-  if (!pinch) pinch = { ...pair, zoom };
-  if (pinch.distance > 0) setBookZoom(pinch.zoom * pair.distance / pinch.distance, pair.x, pair.y);
+  if (!pinch) beginPinch(pair);
+  pinch.latest = pair;
+  if (pinch.distance > 0) pinch.value = Math.max(0.5, Math.min(3, pinch.zoom * pair.distance / pinch.distance));
+  if (pinch.frame === null) pinch.frame = requestAnimationFrame(paintPinch);
 }, { passive: false });
 for (const event of ['touchend', 'touchcancel']) {
-  pagesElement.addEventListener(event, () => { pinch = null; }, { passive: true });
+  pagesElement.addEventListener(event, finishPinch, { passive: true });
 }
 // Safari also emits gesture events; Touch Events above perform the PDF zoom.
 for (const event of ['gesturestart', 'gesturechange']) {
@@ -677,7 +756,7 @@ document.addEventListener('keydown', event => {
   }
 });
 let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => rerender(), 180); });
+window.addEventListener('resize', () => { finishPinch(); clearTimeout(resizeTimer); resizeTimer = setTimeout(() => rerender(), 180); });
 
 try {
   const fragment = document.createDocumentFragment();
