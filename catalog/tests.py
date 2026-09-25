@@ -108,6 +108,12 @@ class LibraryFlowTests(TestCase):
         self.pdf_bytes = document.tobytes()
         document.close()
         book = self.upload()
+        page_response = self.client.get(reverse("pdf_page", args=[book.id, 2]))
+        self.assertEqual(page_response.status_code, 200)
+        with fitz.open(stream=page_response.content, filetype="pdf") as single_page:
+            self.assertEqual(single_page.page_count, 1)
+            self.assertIn("Segunda", single_page[0].get_text())
+        self.assertEqual(self.client.get(reverse("pdf_page", args=[book.id, 3])).status_code, 404)
         Book.objects.filter(pk=book.pk).update(pages=1)
         BookPageText.objects.create(book=book, page_number=1, text="Primera pagina")
 
@@ -116,3 +122,21 @@ class LibraryFlowTests(TestCase):
         self.assertEqual(BookPageText.objects.filter(book=book).count(), 2)
         book.refresh_from_db()
         self.assertEqual(book.pages, 2)
+
+    def test_reader_search_indexes_large_book_in_small_batches(self):
+        document = fitz.open()
+        for number in range(22):
+            document.new_page().insert_text((72, 72), f"Pagina {number + 1} prueba")
+        self.pdf_bytes = document.tobytes()
+        document.close()
+        book = self.upload()
+        url = reverse("search_book", args=[book.id])
+
+        first = self.client.get(url, {"q": "Pagina 22"}).json()
+        self.assertFalse(first["complete"])
+        self.assertEqual(first["indexed_pages"], 20)
+        self.assertEqual(first["total"], 0)
+        second = self.client.get(url, {"q": "Pagina 22"}).json()
+        self.assertTrue(second["complete"])
+        self.assertEqual(second["indexed_pages"], 22)
+        self.assertEqual(second["matches"], [22])

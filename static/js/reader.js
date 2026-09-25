@@ -4,7 +4,6 @@ const root = document.getElementById('reader');
 const pagesElement = document.getElementById('pdf-pages');
 const status = document.getElementById('reader-status');
 const pageInput = document.getElementById('page-input');
-const total = document.getElementById('page-total');
 const zoomSelect = document.getElementById('zoom-select');
 const previous = document.getElementById('previous-page');
 const next = document.getElementById('next-page');
@@ -17,7 +16,7 @@ const findNext = document.getElementById('find-next');
 const findClose = document.getElementById('find-close');
 pdfjsLib.GlobalWorkerOptions.workerSrc = root.dataset.workerUrl;
 
-let pdf;
+const pdf = { numPages: Number(root.dataset.pages) };
 let activePage = 1;
 let renderGeneration = 0;
 let searchMatches = [];
@@ -118,8 +117,17 @@ async function renderPage(number, generation = renderGeneration) {
   if (!pdf || rendering.has(number) || rendered.has(number)) return;
   rendering.add(number);
   const shell = document.getElementById(`page-${number}`);
+  let loadingTask;
   try {
-    const page = await pdf.getPage(number);
+    loadingTask = pdfjsLib.getDocument({
+      url: root.dataset.pageUrlTemplate.replace('123456789', String(number)),
+      cMapUrl: root.dataset.cmapUrl,
+      cMapPacked: true,
+      standardFontDataUrl: root.dataset.fontUrl,
+      disableRange: true,
+    });
+    const pageDocument = await loadingTask.promise;
+    const page = await pageDocument.getPage(1);
     if (generation !== renderGeneration) return;
     const natural = page.getViewport({ scale: 1 });
     const available = Math.max(280, pagesElement.clientWidth - 28);
@@ -165,8 +173,9 @@ async function renderPage(number, generation = renderGeneration) {
     shell.append(message);
     console.error(error);
   } finally {
+    await loadingTask?.destroy().catch(error => console.error(error));
     rendering.delete(number);
-    if (generation !== renderGeneration && !rendered.has(number)) renderPage(number);
+    if (generation !== renderGeneration && !rendered.has(number) && Math.abs(activePage - number) <= 2) renderPage(number);
   }
 }
 
@@ -241,24 +250,30 @@ async function processSearchQueue() {
     try {
       const url = new URL(root.dataset.searchUrl, location.href);
       url.searchParams.set('q', query);
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const result = await response.json();
-      if (pendingQuery !== null || findInput.value.trim() !== query) continue;
-      searchQuery = query;
-      searchMatches = result.matches;
-      searchTotal = result.total;
-      selectedMatch = -1;
-      setStatus('');
-      for (const number of rendered) paintMatches(number);
-      if (searchMatches.length) {
-        const nextOnOrAfterPage = searchMatches.findIndex(number => number >= activePage);
-        goToMatch(nextOnOrAfterPage === -1 ? 0 : nextOnOrAfterPage);
-      } else if (!result.has_text) {
-        updateFindCount('Sin texto');
-        setStatus('Este PDF no contiene texto seleccionable. Necesita OCR para poder buscar.');
-      } else {
-        updateFindCount('0 resultados');
+      let complete = false;
+      while (!complete && pendingQuery === null && findInput.value.trim() === query) {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+        if (pendingQuery !== null || findInput.value.trim() !== query) break;
+        if (searchQuery !== query) selectedMatch = -1;
+        searchQuery = query;
+        searchMatches = result.matches;
+        searchTotal = result.total;
+        complete = result.complete;
+        setStatus('');
+        for (const number of rendered) paintMatches(number);
+        if (searchMatches.length && selectedMatch < 0) {
+          const nextOnOrAfterPage = searchMatches.findIndex(number => number >= activePage);
+          goToMatch(nextOnOrAfterPage === -1 ? 0 : nextOnOrAfterPage);
+        }
+        if (complete && !result.has_text) {
+          updateFindCount('Sin texto');
+          setStatus('Este PDF no contiene texto seleccionable. Necesita OCR para poder buscar.');
+        } else {
+          updateFindCount(complete ? '' : `${result.indexed_pages}/${result.pages} págs.`);
+        }
+        if (!complete) await new Promise(resolve => setTimeout(resolve, 250));
       }
     } catch (error) {
       if (pendingQuery !== null) continue;
@@ -327,17 +342,6 @@ let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(rerender, 180); });
 
 try {
-  const loadingTask = pdfjsLib.getDocument({
-    url: root.dataset.pdfUrl,
-    cMapUrl: root.dataset.cmapUrl,
-    cMapPacked: true,
-    standardFontDataUrl: root.dataset.fontUrl,
-    disableAutoFetch: true,
-    disableStream: true,
-    rangeChunkSize: 256 * 1024,
-  });
-  pdf = await loadingTask.promise;
-  total.textContent = `/ ${pdf.numPages}`;
   const fragment = document.createDocumentFragment();
   for (let number = 1; number <= pdf.numPages; number++) {
     const shell = document.createElement('section');

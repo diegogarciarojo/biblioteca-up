@@ -42,12 +42,14 @@ def search_book(request, book_id):
     book = get_object_or_404(Book, pk=book_id)
     query = request.GET.get("q", "").strip()[:100]
     if not query:
-        return JsonResponse({"matches": [], "total": 0, "has_text": True, "limited": False})
+        return JsonResponse({"matches": [], "total": 0, "has_text": True, "limited": False, "complete": True})
     try:
-        index_book(book)
+        indexed_pages, pages = index_book(book, max_pages=20)
     except (FileNotFoundError, ValueError, fitz.FileDataError):
         raise Http404("PDF no disponible")
-    return JsonResponse(find_in_book(book, query))
+    result = find_in_book(book, query)
+    result.update({"indexed_pages": indexed_pages, "pages": pages, "complete": indexed_pages >= pages})
+    return JsonResponse(result)
 
 
 def login_view(request):
@@ -164,6 +166,28 @@ def _file_response(request, file_field, *, download=False, title=""):
 def pdf_file(request, book_id):
     book = get_object_or_404(Book, pk=book_id)
     return _file_response(request, book.pdf)
+
+
+@require_GET
+def pdf_page(request, book_id, page_number):
+    book = get_object_or_404(Book, pk=book_id)
+    if page_number < 1 or page_number > book.pages:
+        raise Http404("Página no encontrada")
+    try:
+        with fitz.open(book.pdf.path) as source:
+            if page_number > source.page_count:
+                raise Http404("Página no encontrada")
+            with fitz.open() as single_page:
+                single_page.insert_pdf(source, from_page=page_number - 1, to_page=page_number - 1)
+                content = single_page.tobytes()
+    except (FileNotFoundError, ValueError, fitz.FileDataError):
+        raise Http404("PDF no disponible")
+    response = HttpResponse(content, content_type="application/pdf")
+    response["Content-Disposition"] = "inline"
+    response["Content-Length"] = str(len(content))
+    response["Cache-Control"] = "public, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def download_book(request, book_id):

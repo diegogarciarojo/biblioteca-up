@@ -8,7 +8,7 @@
 .reader-findbar button:hover:not(:disabled){background:#d5e6d9}
 .reader-findbar button:disabled{opacity:.45;cursor:default}
 .find-count{min-width:56px;text-align:center;font-size:.72rem;color:#52675d;white-space:nowrap}
-.pdf-page{isolation:isolate}
+.pdf-page{isolation:isolate;aspect-ratio:3/4}
 .pdf-page .textLayer{color-scheme:only light;position:absolute;inset:0;overflow:clip;opacity:1;line-height:1;letter-spacing:normal;word-spacing:normal;text-size-adjust:none;-webkit-text-size-adjust:none;transform-origin:0 0;z-index:2;--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size));--min-font-size-inv:calc(1 / var(--min-font-size))}
 .pdf-page .textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0;user-select:text;-webkit-user-select:text}
 .pdf-page .textLayer> :not(.markedContent),.pdf-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
