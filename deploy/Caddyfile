@@ -1,0 +1,7 @@
+biblioteca.dns.army {
+    encode zstd gzip
+    request_body {
+        max_size 1100MB
+    }
+    reverse_proxy app:8000
+}

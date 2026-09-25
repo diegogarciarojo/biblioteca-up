@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Panel de administrador · Biblioteca UP{% endblock %}
+{% block content %}
+<section class="panel-section container">
+  <div class="section-heading panel-heading"><div><span class="eyebrow">ADMINISTRACIÓN</span><h1>Gestiona tu biblioteca.</h1></div><p>{{ books|length }} libro{{ books|length|pluralize }} publicado{{ books|length|pluralize }}</p></div>
+  <div class="panel-layout">
+    <div class="upload-card"><span class="eyebrow">NUEVO LIBRO</span><h2>Agregar un PDF</h2><p>La portada se creará automáticamente a partir de la primera página.</p>
+      <form method="post" enctype="multipart/form-data" class="stack-form">{% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        <label for="{{ form.title.id_for_label }}">Título <span>*</span></label>{{ form.title }}{% if form.title.errors %}<div class="field-error">{{ form.title.errors }}</div>{% endif %}
+        <label for="{{ form.author.id_for_label }}">Autor</label>{{ form.author }}{% if form.author.errors %}<div class="field-error">{{ form.author.errors }}</div>{% endif %}
+        <label for="{{ form.description.id_for_label }}">Descripción</label>{{ form.description }}{% if form.description.errors %}<div class="field-error">{{ form.description.errors }}</div>{% endif %}
+        <label for="{{ form.pdf.id_for_label }}">Archivo PDF <span>*</span></label><div class="file-input">{{ form.pdf }}<small>Solo PDF · máximo {{ max_pdf_mb }} MB</small></div>{% if form.pdf.errors %}<div class="field-error">{{ form.pdf.errors }}</div>{% endif %}
+        <button class="button button-dark full-width" type="submit">Publicar libro <span aria-hidden="true">↑</span></button>
+      </form>
+    </div>
+    <div class="admin-list"><div class="admin-list-head"><h2>Libros publicados</h2><span>{{ books|length }} en total</span></div>
+      {% for book in books %}<div class="admin-row"><img src="{% url 'cover_file' book.id %}" alt=""><div><a href="{% url 'book_detail' book.id %}">{{ book.title }}</a><span>{{ book.author|default:"Sin autor" }} · {{ book.pages }} pág.</span></div><form method="post" action="{% url 'delete_book' book.id %}" onsubmit="return confirm('¿Eliminar este libro y su PDF de la biblioteca?');">{% csrf_token %}<button type="submit" aria-label="Eliminar {{ book.title }}">Eliminar</button></form></div>{% empty %}<div class="admin-empty">Aún no hay libros. Publica el primero usando el formulario.</div>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

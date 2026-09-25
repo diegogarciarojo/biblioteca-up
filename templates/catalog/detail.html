@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}{{ book.title }} · Biblioteca UP{% endblock %}
+{% block content %}
+<section class="detail-section container">
+  <a class="back-link" href="{% url 'home' %}">← Volver al catálogo</a>
+  <div class="detail-layout">
+    <div class="detail-cover"><img src="{% url 'cover_file' book.id %}" alt="Portada de {{ book.title }}"></div>
+    <div class="detail-copy">
+      <span class="eyebrow">EN TU BIBLIOTECA <span class="eyebrow-line"></span> PDF</span>
+      <h1>{{ book.title }}</h1>
+      <p class="detail-author">{{ book.author|default:"Autor no especificado" }}</p>
+      <div class="detail-rule"></div>
+      {% if book.description %}<p class="detail-description">{{ book.description|linebreaksbr }}</p>{% else %}<p class="detail-description">Abre este libro en el visor o descárgalo para leerlo cuando quieras.</p>{% endif %}
+      <div class="book-facts"><div><strong>{{ book.pages }}</strong><span>Páginas</span></div><div><strong>{{ book.size_label }}</strong><span>Archivo PDF</span></div></div>
+      <div class="detail-actions"><a class="button button-dark" href="{% url 'read_book' book.id %}">Ver libro <span aria-hidden="true">↗</span></a><a class="button button-outline" href="{% url 'download_book' book.id %}">Descargar PDF <span aria-hidden="true">↓</span></a></div>
+      <p class="detail-hint">Se abre en un lector integrado que conserva las páginas originales.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

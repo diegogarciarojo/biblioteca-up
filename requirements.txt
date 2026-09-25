@@ -1,0 +1,4 @@
+Django>=5.2,<5.3
+gunicorn>=23,<24
+PyMuPDF>=1.26,<1.28
+whitenoise>=6.9,<7

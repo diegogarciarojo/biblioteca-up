@@ -1,0 +1,171 @@
+import re
+from pathlib import Path
+
+from django.contrib import messages
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.forms import AuthenticationForm
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import content_disposition_header
+from django.views.decorators.http import require_POST
+
+from .forms import BookUploadForm
+from .models import Book
+
+
+def home(request):
+    query = request.GET.get("q", "").strip()[:120]
+    books = Book.objects.all()
+    if query:
+        books = books.filter(Q(title__icontains=query) | Q(author__icontains=query) | Q(description__icontains=query))
+    page = Paginator(books, 18).get_page(request.GET.get("page"))
+    return render(request, "catalog/home.html", {"page": page, "query": query, "total_books": Book.objects.count()})
+
+
+def book_detail(request, book_id):
+    return render(request, "catalog/detail.html", {"book": get_object_or_404(Book, pk=book_id)})
+
+
+def read_book(request, book_id):
+    return render(request, "catalog/reader.html", {"book": get_object_or_404(Book, pk=book_id)})
+
+
+def login_view(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("panel")
+    form = AuthenticationForm(request, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        if not form.get_user().is_staff:
+            form.add_error(None, "Esta cuenta no tiene acceso al panel.")
+        else:
+            login(request, form.get_user())
+            return redirect("panel")
+    return render(request, "catalog/login.html", {"form": form})
+
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    return redirect("home")
+
+
+staff_required = user_passes_test(lambda user: user.is_authenticated and user.is_staff, login_url="/login")
+
+
+@staff_required
+def panel(request):
+    form = BookUploadForm(request.POST if request.method == "POST" else None, request.FILES if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        book = form.save(commit=False)
+        book.pages = form.page_count
+        book.file_size = form.cleaned_data["pdf"].size
+        book.cover.save(f"{book.id}.jpg", ContentFile(form.cover_bytes), save=False)
+        book.save()
+        messages.success(request, f"«{book.title}» ya está disponible en la biblioteca.")
+        return redirect("panel")
+    return render(request, "catalog/panel.html", {"form": form, "books": Book.objects.all(), "max_pdf_mb": settings.MAX_PDF_MB})
+
+
+@staff_required
+@require_POST
+def delete_book(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    title = book.title
+    pdf_name, cover_name = book.pdf.name, book.cover.name
+    book.delete()
+    book.pdf.storage.delete(pdf_name)
+    book.cover.storage.delete(cover_name)
+    messages.success(request, f"«{title}» se eliminó de la biblioteca.")
+    return redirect("panel")
+
+
+def _file_response(request, file_field, *, download=False, title=""):
+    try:
+        path = Path(file_field.path)
+        size = path.stat().st_size
+    except (FileNotFoundError, ValueError):
+        raise Http404("Archivo no encontrado")
+    content_type = "application/pdf"
+    filename = f"{title}.pdf" if download else None
+    disposition = content_disposition_header(download, filename) if download else 'inline'
+    common = {
+        "Content-Type": content_type,
+        "Content-Disposition": disposition,
+        "Accept-Ranges": "bytes",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "public, max-age=3600",
+    }
+    range_header = request.headers.get("Range", "")
+    match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip()) if range_header else None
+    if range_header and not match:
+        response = HttpResponse(status=416)
+        response["Content-Range"] = f"bytes */{size}"
+        return response
+    if match:
+        first, last = match.groups()
+        if not first and not last:
+            response = HttpResponse(status=416)
+            response["Content-Range"] = f"bytes */{size}"
+            return response
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+        else:
+            suffix = int(last)
+            start, end = max(0, size - suffix), size - 1
+        if start >= size or end < start or size == 0:
+            response = HttpResponse(status=416)
+            response["Content-Range"] = f"bytes */{size}"
+            return response
+        length = end - start + 1
+
+        def chunks():
+            with path.open("rb") as source:
+                source.seek(start)
+                remaining = length
+                while remaining:
+                    chunk = source.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        response = StreamingHttpResponse(chunks(), status=206, content_type=content_type)
+        response["Content-Range"] = f"bytes {start}-{end}/{size}"
+        response["Content-Length"] = str(length)
+    else:
+        response = FileResponse(path.open("rb"), content_type=content_type)
+        response["Content-Length"] = str(size)
+    for key, value in common.items():
+        response[key] = value
+    return response
+
+
+def pdf_file(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    return _file_response(request, book.pdf)
+
+
+def download_book(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    return _file_response(request, book.pdf, download=True, title=book.title)
+
+
+def cover_file(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    try:
+        response = FileResponse(book.cover.open("rb"), content_type="image/jpeg")
+    except FileNotFoundError:
+        raise Http404("Portada no encontrada")
+    response["Cache-Control"] = "public, max-age=3600"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+def health(request):
+    return HttpResponse("ok", content_type="text/plain")

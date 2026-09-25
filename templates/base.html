@@ -1,0 +1,39 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f1e9">
+  <meta name="description" content="Biblioteca UP: descubre, consulta y descarga libros en PDF.">
+  <title>{% block title %}Biblioteca UP{% endblock %}</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner container">
+      <a class="brand" href="{% url 'home' %}" aria-label="Biblioteca UP, inicio">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>Biblioteca <strong>UP</strong></span>
+      </a>
+      <nav class="main-nav" aria-label="Navegación principal">
+        <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Explorar</a>
+        {% if user.is_staff %}<a href="{% url 'panel' %}" {% if request.resolver_match.url_name == 'panel' %}aria-current="page"{% endif %}>Panel</a>{% endif %}
+        {% if user.is_staff %}
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-pill" type="submit">Salir</button></form>
+        {% else %}
+          <a class="nav-pill" href="{% url 'login' %}">Administrar <span aria-hidden="true">↗</span></a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+  {% if messages %}
+    <div class="container notices" role="status">
+      {% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="site-footer container"><span>Biblioteca UP</span><span>Un espacio para leer y descubrir.</span></footer>
+</body>
+</html>

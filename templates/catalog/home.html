@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Explorar libros · Biblioteca UP{% endblock %}
+{% block content %}
+<section class="hero container">
+  <div class="hero-copy">
+    <span class="eyebrow"><span class="eyebrow-line"></span> TU ESPACIO DE LECTURA</span>
+    <h1>Historias e ideas<br><em>al alcance de todos.</em></h1>
+    <p>Encuentra el libro que buscas, léelo aquí mismo o descárgalo para llevarlo contigo.</p>
+    <form class="search-box" action="{% url 'home' %}" method="get" role="search">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <label class="sr-only" for="book-search">Buscar libros</label>
+      <input id="book-search" name="q" value="{{ query }}" placeholder="Buscar por título, autor o tema…" autocomplete="off">
+      <button type="submit">Buscar <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="hero-foot"><span class="round-sparkle" aria-hidden="true">✳</span><span><strong>{{ total_books }}</strong> libro{{ total_books|pluralize }} disponible{{ total_books|pluralize }}</span></div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+    <div class="book-art back-book"><span>LECTURAS</span><b>Explora<br>sin límites</b><i>∞</i></div>
+    <div class="book-art front-book"><span> BIBLIOTECA · UP </span><b>El siguiente<br>capítulo<br>empieza aquí.</b><i>✳</i></div>
+    <div class="art-badge"><span>✦</span> Abre un libro.<br>Abre un mundo.</div>
+  </div>
+</section>
+
+<section class="catalog-section container" aria-labelledby="catalog-title">
+  <div class="section-heading">
+    <div><span class="eyebrow">EL CATÁLOGO</span><h2 id="catalog-title">{% if query %}Resultados de búsqueda{% else %}Explora la biblioteca{% endif %}</h2></div>
+    <p>{% if query %}Para “{{ query }}”{% else %}Elige tu próxima lectura.{% endif %}</p>
+  </div>
+  {% if page.object_list %}
+    <div class="book-grid">
+      {% for book in page.object_list %}
+      <a class="book-card" href="{% url 'book_detail' book.id %}" aria-label="Abrir {{ book.title }}">
+        <div class="cover-frame"><img src="{% url 'cover_file' book.id %}" alt="Portada de {{ book.title }}" loading="lazy"><span class="cover-hover">Ver libro <span aria-hidden="true">↗</span></span></div>
+        <div class="card-meta"><span>PDF · {{ book.pages }} pág.</span><span aria-hidden="true">↗</span></div>
+        <h3>{{ book.title }}</h3><p>{{ book.author|default:"Autor no especificado" }}</p>
+      </a>
+      {% endfor %}
+    </div>
+    {% if page.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="Páginas del catálogo">
+      {% if page.has_previous %}<a href="?q={{ query|urlencode }}&page={{ page.previous_page_number }}">← Anterior</a>{% else %}<span></span>{% endif %}
+      <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?q={{ query|urlencode }}&page={{ page.next_page_number }}">Siguiente →</a>{% else %}<span></span>{% endif %}
+    </nav>
+    {% endif %}
+  {% else %}
+    <div class="empty-state"><span class="empty-icon" aria-hidden="true">⌕</span><h3>{% if query %}No encontramos ese libro{% else %}La biblioteca está esperando sus primeros libros{% endif %}</h3><p>{% if query %}Prueba otro título, autor o tema.{% else %}Vuelve pronto para descubrir nuevas lecturas.{% endif %}</p>{% if query %}<a class="button button-dark" href="{% url 'home' %}">Ver todos los libros</a>{% endif %}</div>
+  {% endif %}
+</section>
+{% endblock %}
