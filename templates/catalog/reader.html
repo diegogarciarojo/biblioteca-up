@@ -1,11 +1,43 @@
 {% load static %}
 <!doctype html>
 <html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#18292d"><title>Leer {{ book.title }} · Biblioteca UP</title><link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml"><link rel="stylesheet" href="{% static 'css/site.css' %}"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#18292d">
+  <title>Leer {{ book.title }} · Biblioteca UP</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/reader.css' %}">
+</head>
 <body class="reader-body">
-  <div id="reader" data-pdf-url="{% url 'pdf_file' book.id %}" data-worker-url="{% static 'pdfjs/pdf.worker.mjs' %}" data-cmap-url="/static/pdfjs/cmaps/" data-font-url="/static/pdfjs/standard_fonts/">
-    <header class="reader-toolbar"><a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">←</a><div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Biblioteca UP" }}</span></div><div class="reader-controls"><button id="previous-page" class="reader-control" type="button" aria-label="Página anterior">‹</button><label class="sr-only" for="page-input">Número de página</label><input id="page-input" type="number" min="1" value="1" inputmode="numeric"><span id="page-total">/ …</span><button id="next-page" class="reader-control" type="button" aria-label="Página siguiente">›</button><span class="reader-separator"></span><label class="sr-only" for="zoom-select">Zoom</label><select id="zoom-select" aria-label="Zoom"><option value="fit">Ajustar</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></div><a class="reader-download" href="{% url 'download_book' book.id %}">Descargar <span aria-hidden="true">↓</span></a></header>
-    <div id="reader-status" class="reader-status" role="status">Preparando el libro…</div><main id="pdf-pages" class="pdf-pages" aria-label="Páginas de {{ book.title }}"></main>
+  <div id="reader" data-pdf-url="{% url 'pdf_file' book.id %}" data-search-url="{% url 'search_book' book.id %}" data-worker-url="{% static 'pdfjs/pdf.worker.mjs' %}" data-cmap-url="/static/pdfjs/cmaps/" data-font-url="/static/pdfjs/standard_fonts/">
+    <header class="reader-toolbar">
+      <a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">←</a>
+      <div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Biblioteca UP" }}</span></div>
+      <div class="reader-controls">
+        <button id="previous-page" class="reader-control" type="button" aria-label="Página anterior">‹</button>
+        <label class="sr-only" for="page-input">Número de página</label>
+        <input id="page-input" type="number" min="1" value="1" inputmode="numeric">
+        <span id="page-total">/ …</span>
+        <button id="next-page" class="reader-control" type="button" aria-label="Página siguiente">›</button>
+        <span class="reader-separator"></span>
+        <label class="sr-only" for="zoom-select">Zoom</label>
+        <select id="zoom-select" aria-label="Zoom"><option value="fit">Ajustar</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select>
+      </div>
+      <button id="find-toggle" class="reader-find-toggle" type="button" aria-label="Buscar en el libro" aria-expanded="false" aria-controls="reader-findbar"><span aria-hidden="true">⌕</span><span class="find-label">Buscar</span></button>
+      <a class="reader-download" href="{% url 'download_book' book.id %}">Descargar <span aria-hidden="true">↓</span></a>
+    </header>
+    <div id="reader-findbar" class="reader-findbar" hidden role="search" aria-label="Buscar dentro del libro">
+      <label class="sr-only" for="find-input">Palabra o frase</label>
+      <input id="find-input" type="search" placeholder="Buscar palabra o frase" autocomplete="off" spellcheck="false">
+      <span id="find-count" class="find-count" role="status" aria-live="polite"></span>
+      <button id="find-previous" type="button" aria-label="Resultado anterior" disabled>↑</button>
+      <button id="find-next" type="button" aria-label="Resultado siguiente" disabled>↓</button>
+      <button id="find-close" type="button" aria-label="Cerrar búsqueda">×</button>
+    </div>
+    <div id="reader-status" class="reader-status" role="status">Preparando el libro…</div>
+    <main id="pdf-pages" class="pdf-pages" aria-label="Páginas de {{ book.title }}"></main>
   </div>
   <script type="module" src="{% static 'js/reader.js' %}"></script>
 </body>

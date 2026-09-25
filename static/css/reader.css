@@ -1,0 +1,21 @@
+.reader-find-toggle{border:1px solid #71958b;border-radius:7px;background:transparent;color:#f6f5e9;padding:8px 11px;font:700 .79rem 'DM Sans',sans-serif;white-space:nowrap;cursor:pointer}
+.reader-find-toggle:hover,.reader-find-toggle[aria-expanded="true"]{background:#28504b}
+.reader-find-toggle>span:first-child{font-size:1.2rem;line-height:0;vertical-align:-.08em;margin-right:5px}
+.reader-findbar{position:absolute;z-index:4;top:76px;right:23px;width:min(430px,calc(100vw - 28px));display:flex;align-items:center;gap:5px;padding:9px;background:#fff;color:#233b36;border:1px solid #cbd6d0;border-radius:10px;box-shadow:0 12px 32px rgba(14,37,30,.22)}
+.reader-findbar[hidden]{display:none}
+.reader-findbar input{min-width:0;flex:1;border:1px solid #bbc9c1;border-radius:6px;padding:8px 9px;font:inherit;font-size:.85rem;outline-offset:2px}
+.reader-findbar button{flex:0 0 32px;height:32px;border:0;border-radius:5px;background:#e8f0eb;color:#24443a;font-size:1rem;cursor:pointer}
+.reader-findbar button:hover:not(:disabled){background:#d5e6d9}
+.reader-findbar button:disabled{opacity:.45;cursor:default}
+.find-count{min-width:56px;text-align:center;font-size:.72rem;color:#52675d;white-space:nowrap}
+.pdf-page{isolation:isolate}
+.pdf-page .textLayer{color-scheme:only light;position:absolute;inset:0;overflow:clip;opacity:1;line-height:1;letter-spacing:normal;word-spacing:normal;text-size-adjust:none;-webkit-text-size-adjust:none;transform-origin:0 0;z-index:2;--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size));--min-font-size-inv:calc(1 / var(--min-font-size))}
+.pdf-page .textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0;user-select:text;-webkit-user-select:text}
+.pdf-page .textLayer> :not(.markedContent),.pdf-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
+.pdf-page .textLayer .markedContent{display:contents}
+.pdf-page .textLayer ::selection{background:rgba(54,127,244,.35);color:transparent}
+.pdf-page .textLayer ::-moz-selection{background:rgba(54,127,244,.35);color:transparent}
+.pdf-page .search-highlights{position:absolute;inset:0;pointer-events:none;z-index:3}
+.pdf-page .search-hit{position:absolute;background:rgba(255,197,34,.42);border-radius:2px}
+.pdf-page .search-hit.is-current{background:rgba(255,156,0,.58);outline:2px solid #b97000}
+@media(max-width:760px){.reader-findbar{top:69px;right:7px}.reader-find-toggle{padding:7px 8px}.find-label{display:none}.reader-find-toggle>span:first-child{margin:0}}

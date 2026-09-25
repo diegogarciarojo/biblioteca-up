@@ -37,3 +37,12 @@ class Book(models.Model):
         if self.file_size < 1024 * 1024:
             return f"{max(1, round(self.file_size / 1024))} KB"
         return f"{self.size_mb} MB"
+
+
+class BookPageText(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="indexed_pages")
+    page_number = models.PositiveIntegerField()
+    text = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["book", "page_number"], name="unique_book_page_text")]

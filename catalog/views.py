@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import fitz
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import user_passes_test
@@ -9,13 +10,14 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import content_disposition_header
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import BookUploadForm
 from .models import Book
+from .search import find_in_book, index_book
 
 
 def home(request):
@@ -33,6 +35,19 @@ def book_detail(request, book_id):
 
 def read_book(request, book_id):
     return render(request, "catalog/reader.html", {"book": get_object_or_404(Book, pk=book_id)})
+
+
+@require_GET
+def search_book(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    query = request.GET.get("q", "").strip()[:100]
+    if not query:
+        return JsonResponse({"matches": [], "total": 0, "has_text": True, "limited": False})
+    try:
+        index_book(book)
+    except (FileNotFoundError, ValueError, fitz.FileDataError):
+        raise Http404("PDF no disponible")
+    return JsonResponse(find_in_book(book, query))
 
 
 def login_view(request):

@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Book
+from .models import BookPageText
 
 
 class LibraryFlowTests(TestCase):
@@ -86,3 +87,16 @@ class LibraryFlowTests(TestCase):
         self.assertEqual(self.client.get(reverse("panel")).status_code, 200)
         self.assertRedirects(self.client.post(reverse("logout")), reverse("home"))
         self.assertEqual(self.client.get(reverse("panel")).status_code, 302)
+
+    def test_reader_search_builds_and_reuses_page_index(self):
+        book = self.upload()
+        url = reverse("search_book", args=[book.id])
+        response = self.client.get(url, {"q": "Libro"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["matches"], [1])
+        self.assertEqual(response.json()["total"], 1)
+        self.assertTrue(response.json()["has_text"])
+        self.assertEqual(BookPageText.objects.filter(book=book).count(), 1)
+        self.assertEqual(self.client.get(url, {"q": "prueba"}).json()["matches"], [1])
+        self.assertEqual(BookPageText.objects.filter(book=book).count(), 1)
+        self.assertEqual(self.client.get(url, {"q": "no aparece"}).json()["total"], 0)

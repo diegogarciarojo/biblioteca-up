@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 db.sqlite3
 data/
+data-local-test/
 staticfiles/
 deploy/Caddyfile.runtime
 .DS_Store
