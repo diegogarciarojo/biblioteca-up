@@ -317,7 +317,7 @@ function hideFind() {
 
 previous.addEventListener('click', () => scrollToPage(activePage - 1));
 next.addEventListener('click', () => scrollToPage(activePage + 1));
-pageInput.addEventListener('change', () => scrollToPage(pageInput.value));
+pageInput.addEventListener('change', () => scrollToPage(pageInput.value, true));
 zoomSelect.addEventListener('change', rerender);
 findToggle.addEventListener('click', showFind);
 findClose.addEventListener('click', hideFind);
