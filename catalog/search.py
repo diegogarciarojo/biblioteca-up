@@ -12,10 +12,13 @@ MAX_MATCHES = 10000
 
 def index_book(book):
     indexed = set(BookPageText.objects.filter(book=book).values_list("page_number", flat=True))
-    if len(indexed) >= book.pages:
-        return
     pending = []
     with fitz.open(book.pdf.path) as document:
+        if book.pages != document.page_count:
+            book.pages = document.page_count
+            book.save(update_fields=["pages"])
+        if len(indexed) >= document.page_count:
+            return
         for index in range(document.page_count):
             number = index + 1
             if number in indexed:

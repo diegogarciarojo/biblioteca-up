@@ -100,3 +100,19 @@ class LibraryFlowTests(TestCase):
         self.assertEqual(self.client.get(url, {"q": "prueba"}).json()["matches"], [1])
         self.assertEqual(BookPageText.objects.filter(book=book).count(), 1)
         self.assertEqual(self.client.get(url, {"q": "no aparece"}).json()["total"], 0)
+
+    def test_reader_search_repairs_stale_page_count(self):
+        document = fitz.open()
+        document.new_page().insert_text((72, 72), "Primera pagina")
+        document.new_page().insert_text((72, 72), "Segunda pagina")
+        self.pdf_bytes = document.tobytes()
+        document.close()
+        book = self.upload()
+        Book.objects.filter(pk=book.pk).update(pages=1)
+        BookPageText.objects.create(book=book, page_number=1, text="Primera pagina")
+
+        response = self.client.get(reverse("search_book", args=[book.id]), {"q": "Segunda"})
+        self.assertEqual(response.json()["matches"], [2])
+        self.assertEqual(BookPageText.objects.filter(book=book).count(), 2)
+        book.refresh_from_db()
+        self.assertEqual(book.pages, 2)
