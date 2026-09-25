@@ -76,3 +76,13 @@ class LibraryFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "cabecera PDF válida")
         self.assertFalse(Book.objects.exists())
+
+    def test_admin_login_and_logout(self):
+        response = self.client.post(reverse("login"), {
+            "username": "diego",
+            "password": "una-clave-segura",
+        })
+        self.assertRedirects(response, reverse("panel"))
+        self.assertEqual(self.client.get(reverse("panel")).status_code, 200)
+        self.assertRedirects(self.client.post(reverse("logout")), reverse("home"))
+        self.assertEqual(self.client.get(reverse("panel")).status_code, 302)
