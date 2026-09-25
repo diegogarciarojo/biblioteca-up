@@ -1,6 +1,7 @@
 """Build a small, persistent text index without keeping whole PDFs in memory."""
 
 import re
+import unicodedata
 
 import fitz
 
@@ -8,6 +9,11 @@ from .models import BookPageText
 
 
 MAX_MATCHES = 10000
+
+
+def normalize_search(text):
+    text = unicodedata.normalize("NFD", text.casefold())
+    return re.sub(r"\s+", " ", "".join(c for c in text if not unicodedata.category(c).startswith("M")))
 
 
 def index_book(book, max_pages=None):
@@ -42,7 +48,7 @@ def index_book(book, max_pages=None):
 
 
 def find_in_book(book, query):
-    needle = re.sub(r"\s+", " ", query).casefold()
+    needle = normalize_search(query)
     matches = []
     total = 0
     has_text = False
@@ -50,7 +56,7 @@ def find_in_book(book, query):
         has_text |= bool(text.strip())
         if not needle:
             continue
-        searchable = re.sub(r"\s+", " ", text).casefold()
+        searchable = normalize_search(text)
         start = 0
         while (position := searchable.find(needle, start)) != -1:
             total += 1

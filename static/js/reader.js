@@ -1,5 +1,6 @@
 import * as pdfjsLib from '../pdfjs/pdf.mjs';
 import { BookPreloader } from './book-preloader.js';
+import { normalizeSearch } from './search-text.js';
 
 const root = document.getElementById('reader');
 const pagesElement = document.getElementById('pdf-pages');
@@ -80,6 +81,14 @@ const preloader = new BookPreloader({
   },
 });
 preloadToggle.addEventListener('click', () => preloader.toggle());
+const preloadPanel = document.getElementById('preload-panel');
+const preloadMinimize = document.getElementById('preload-minimize');
+preloadMinimize.addEventListener('click', () => {
+  const minimized = preloadPanel.classList.toggle('is-minimized');
+  preloadMinimize.textContent = minimized ? 'Carga del libro' : '−';
+  preloadMinimize.setAttribute('aria-expanded', String(!minimized));
+  preloadMinimize.setAttribute('aria-label', minimized ? 'Mostrar preparación del libro' : 'Minimizar preparación del libro');
+});
 window.addEventListener('pagehide', () => preloader.stop());
 window.addEventListener('pageshow', event => {
   if (event.persisted) { preloader.stopped = false; preloader.start(); }
@@ -297,8 +306,10 @@ function paintMatches(number) {
     content += node.textContent;
   }
   if (!nodes.length) return;
-  const query = searchQuery.toLocaleLowerCase();
-  const searchable = content.toLocaleLowerCase();
+  const query = normalizeSearch(searchQuery).value;
+  if (!query) return;
+  const normalized = normalizeSearch(content);
+  const searchable = normalized.value;
   const overlay = document.createElement('div');
   overlay.className = 'search-highlights';
   overlay.setAttribute('aria-hidden', 'true');
@@ -311,8 +322,8 @@ function paintMatches(number) {
   for (let start = 0; ordinal < 300;) {
     const index = searchable.indexOf(query, start);
     if (index === -1) break;
-    const first = findTextPosition(nodes, index);
-    const last = findTextPosition(nodes, index + query.length - 1);
+    const first = findTextPosition(nodes, normalized.starts[index]);
+    const last = findTextPosition(nodes, normalized.ends[index + query.length - 1] - 1);
     const range = document.createRange();
     range.setStart(first.node, first.offset);
     range.setEnd(last.node, last.offset + 1);
@@ -600,12 +611,8 @@ next.addEventListener('click', () => scrollToPage(activePage + 1));
 pageInput.addEventListener('change', () => scrollToPage(pageInput.value));
 pageInput.addEventListener('blur', () => { pageInput.value = activePage; });
 zoomSelect.addEventListener('change', () => rerender(zoomSelect.value === 'fit' ? 1 : Number(zoomSelect.value)));
-pagesElement.addEventListener('wheel', event => {
-  if (document.activeElement === pageInput) pageInput.blur();
-  if (!event.ctrlKey && !event.metaKey) return;
-  event.preventDefault();
-  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pagesElement.clientHeight : 1);
-  const value = Math.round(Math.max(0.5, Math.min(3, zoom * Math.exp(-delta * 0.002))) * 100) / 100;
+function setBookZoom(value, x, y) {
+  value = Math.round(Math.max(0.5, Math.min(3, value)) * 100) / 100;
   if (value === zoom) return;
   zoomSelect.querySelector('[data-custom]')?.remove();
   if (![...zoomSelect.options].some(option => option.value === String(value))) {
@@ -614,7 +621,41 @@ pagesElement.addEventListener('wheel', event => {
     zoomSelect.add(option);
   }
   zoomSelect.value = String(value);
-  rerender(value, event.clientX, event.clientY);
+  rerender(value, x, y);
+}
+
+let pinch = null;
+function touchPair(touches) {
+  const [a, b] = touches;
+  return { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+    x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+}
+pagesElement.addEventListener('touchstart', event => {
+  if (event.touches.length !== 2) return;
+  event.preventDefault();
+  const pair = touchPair(event.touches);
+  pinch = { ...pair, zoom };
+}, { passive: false });
+pagesElement.addEventListener('touchmove', event => {
+  if (event.touches.length !== 2) return;
+  event.preventDefault();
+  const pair = touchPair(event.touches);
+  if (!pinch) pinch = { ...pair, zoom };
+  if (pinch.distance > 0) setBookZoom(pinch.zoom * pair.distance / pinch.distance, pair.x, pair.y);
+}, { passive: false });
+for (const event of ['touchend', 'touchcancel']) {
+  pagesElement.addEventListener(event, () => { pinch = null; }, { passive: true });
+}
+// Safari also emits gesture events; Touch Events above perform the PDF zoom.
+for (const event of ['gesturestart', 'gesturechange']) {
+  pagesElement.addEventListener(event, event => event.preventDefault(), { passive: false });
+}
+pagesElement.addEventListener('wheel', event => {
+  if (document.activeElement === pageInput) pageInput.blur();
+  if (!event.ctrlKey && !event.metaKey) return;
+  event.preventDefault();
+  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pagesElement.clientHeight : 1);
+  setBookZoom(zoom * Math.exp(-delta * 0.002), event.clientX, event.clientY);
 }, { passive: false });
 findToggle.addEventListener('click', showFind);
 findClose.addEventListener('click', hideFind);

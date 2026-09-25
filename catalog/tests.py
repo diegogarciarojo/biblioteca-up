@@ -108,6 +108,16 @@ class LibraryFlowTests(TestCase):
         self.assertEqual(BookPageText.objects.filter(book=book).count(), 1)
         self.assertEqual(self.client.get(url, {"q": "no aparece"}).json()["total"], 0)
 
+    def test_reader_search_ignores_accents_in_query_and_saved_text(self):
+        book = self.upload()
+        BookPageText.objects.create(book=book, page_number=1, text="Sección 2.3; SECCIO\u0301N 2.3; seccion 2.3")
+        url = reverse("search_book", args=[book.id])
+        for query in ["Seccion 2.3", "Sección 2.3", "SECCIO\u0301N 2.3"]:
+            with self.subTest(query=query):
+                result = self.client.get(url, {"q": query}).json()
+                self.assertEqual(result["matches"], [1, 1, 1])
+                self.assertEqual(result["total"], 3)
+
     def test_reader_search_repairs_stale_page_count(self):
         document = fitz.open()
         document.new_page().insert_text((72, 72), "Primera pagina")
