@@ -35,6 +35,10 @@ const worker = new pdfjsLib.PDFWorker();
 let zoom = 1;
 let zoomTimer;
 let zoomPending = false;
+let fastScrolling = false;
+let scrollIdleTimer;
+let lastScrollTop = pagesElement.scrollTop;
+let lastScrollTime = performance.now();
 let queue = [];
 let layoutWidth = pagesElement.clientWidth;
 pageInput.max = pdf.numPages;
@@ -124,7 +128,9 @@ function requestPages() {
 }
 
 function pumpQueue() {
-  if (zoomPending) return;
+  if (zoomPending || fastScrolling) return;
+  // A scroll event must not let prefetch overtake the selected page.
+  if (rendering.has(activePage) && !rendering.get(activePage).cancelled) return;
   while (rendering.size < 2 && queue.length) {
     const number = queue.shift();
     const shell = document.getElementById(`page-${number}`);
@@ -300,6 +306,20 @@ function updateActiveFromScroll() {
 
 let scrollScheduled = false;
 pagesElement.addEventListener('scroll', () => {
+  const now = performance.now();
+  const distance = Math.abs(pagesElement.scrollTop - lastScrollTop);
+  const elapsed = Math.max(1, now - lastScrollTime);
+  if (distance > pagesElement.clientHeight * 0.5 || distance / elapsed > pagesElement.clientHeight / 160) {
+    fastScrolling = true;
+    queue = [];
+  }
+  lastScrollTop = pagesElement.scrollTop;
+  lastScrollTime = now;
+  clearTimeout(scrollIdleTimer);
+  scrollIdleTimer = setTimeout(() => {
+    fastScrolling = false;
+    updateActiveFromScroll();
+  }, 140);
   if (scrollScheduled) return;
   scrollScheduled = true;
   requestAnimationFrame(() => { scrollScheduled = false; updateActiveFromScroll(); });
@@ -309,6 +329,9 @@ function scrollToPage(number) {
   if (!pdf) return;
   const clamped = Math.max(1, Math.min(pdf.numPages, Math.trunc(Number(number)) || 1));
   document.getElementById(`page-${clamped}`).scrollIntoView({ block: 'start', behavior: 'instant' });
+  fastScrolling = false;
+  lastScrollTop = pagesElement.scrollTop;
+  lastScrollTime = performance.now();
   updatePage(clamped);
   requestPages();
 }
