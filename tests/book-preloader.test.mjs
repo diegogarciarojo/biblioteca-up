@@ -108,3 +108,42 @@ test('without persistent storage, the reader still opens individual pages', asyn
   assert.equal(f.states.at(-1).available, false);
   assert.equal(f.states.at(-1).complete, false);
 });
+
+test('already downloaded PDFs are not complete until every visual preview is prepared', async () => {
+  const f = fixture(4);
+  const dataOnly = new BookPreloader(f.options);
+  await dataOnly.start();
+  const prepared = [];
+  f.options.prepare = async number => { prepared.push(number); };
+  const visual = new BookPreloader(f.options);
+  await visual.ready;
+  assert.equal(visual.saved.size, 4);
+  assert.equal(f.states.at(-1).loaded, 0);
+  assert.equal(f.states.at(-1).complete, false);
+  const requests = f.calls.length;
+  await visual.start();
+  assert.deepEqual(prepared.sort(), [1, 2, 3, 4]);
+  assert.equal(f.states.at(-1).complete, true);
+  assert.equal(f.calls.length, requests);
+});
+
+test('a failed visual preview prevents completion and is retried without downloading PDFs again', async () => {
+  const f = fixture(3);
+  let fail = true;
+  const attempts = [];
+  f.options.prepare = async number => {
+    attempts.push(number);
+    if (number === 2 && fail) throw new Error('preview failure');
+  };
+  const visual = new BookPreloader(f.options);
+  await visual.start();
+  assert.equal(visual.saved.size, 3);
+  assert.equal(f.states.at(-1).loaded, 2);
+  assert.equal(f.states.at(-1).complete, false);
+  fail = false;
+  visual.toggle();
+  while (visual.running || visual.prepared.size < 3) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(f.states.at(-1).complete, true);
+  assert.equal(f.calls.length, 3);
+  assert.equal(attempts.filter(n => n === 1).length, 1);
+});

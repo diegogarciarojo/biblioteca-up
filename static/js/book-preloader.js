@@ -1,9 +1,10 @@
 // Keep the entire book on disk, while PDF.js only holds a few parsed pages in RAM.
 export class BookPreloader {
-  constructor({ total, url, name, onProgress = () => {}, busy = () => false,
+  constructor({ total, url, name, onProgress = () => {}, busy = () => false, prepare = null,
     storage = globalThis.caches, fetcher = globalThis.fetch.bind(globalThis) }) {
-    Object.assign(this, { total, url, name, onProgress, busy, storage, fetcher });
+    Object.assign(this, { total, url, name, onProgress, busy, prepare, storage, fetcher });
     this.saved = new Set();
+    this.prepared = new Set();
     this.pending = new Map();
     this.failures = new Set();
     this.paused = false;
@@ -28,8 +29,9 @@ export class BookPreloader {
   }
 
   report() {
-    this.onProgress({ loaded: this.saved.size, total: this.total,
-      complete: this.saved.size === this.total, paused: this.paused,
+    const loaded = this.prepare ? [...this.prepared].filter(number => this.saved.has(number)).length : this.saved.size;
+    this.onProgress({ loaded, downloaded: this.saved.size, total: this.total,
+      complete: loaded === this.total, paused: this.paused,
       available: !!this.cache, problem: this.problem, failed: this.failures.size });
   }
 
@@ -37,7 +39,11 @@ export class BookPreloader {
     if (!this.cache) return null;
     try {
       const response = await this.cache.match(this.url(number));
-      if (response) return response;
+      if (response) {
+        // Another tab may have finished downloading this page since open().
+        this.saved.add(number);
+        return response;
+      }
       // Browsers can evict data to recover disk space.
       if (this.saved.delete(number)) this.report();
     } catch {
@@ -141,17 +147,22 @@ export class BookPreloader {
     // Two sequential workers, rather than hundreds of simultaneous requests.
     const reserved = new Set();
     const work = async () => {
-      while (!this.stopped && !this.problem && this.saved.size < this.total) {
+      while (!this.stopped && !this.problem) {
         if (this.paused || this.busy()) {
           await new Promise(resolve => setTimeout(resolve, 180));
           continue;
         }
         let number = 1;
-        while (number <= this.total && (this.saved.has(number) || reserved.has(number) || this.failures.has(number))) number++;
+        while (number <= this.total && ((this.saved.has(number) && (!this.prepare || this.prepared.has(number))) || reserved.has(number) || this.failures.has(number))) number++;
         if (number > this.total) break;
         reserved.add(number);
         try {
-          if (!(await this.cached(number))) await this.download(number, false);
+          const response = await this.cached(number) || await this.download(number, false);
+          if (this.prepare && !this.prepared.has(number)) {
+            await this.prepare(number, response.clone(), this.cache);
+            this.prepared.add(number);
+            this.report();
+          }
         } catch (error) {
           if (error.name !== 'AbortError') this.failures.add(number);
         } finally {

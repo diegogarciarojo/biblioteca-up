@@ -33,7 +33,7 @@ const rendered = new Set();
 const documents = new Map();
 const pageSizes = new Map();
 const previews = new Map();
-const previewing = new Set();
+const previewing = new Map();
 const worker = new pdfjsLib.PDFWorker();
 let zoom = 1;
 let zoomTimer;
@@ -59,6 +59,7 @@ const preloader = new BookPreloader({
     return url.href;
   },
   busy: () => fastScrolling || zoomPending || rendering.size > 0,
+  prepare: (number, response, cache) => prepareVisual(number, response, cache),
   onProgress: state => {
     preloadState = state;
     if (state.complete || state.problem || state.paused) {
@@ -70,9 +71,9 @@ const preloader = new BookPreloader({
       progressTimer = null;
       const state = preloadState;
       preloadProgress.value = state.loaded;
-      preloadLabel.textContent = state.complete ? `Libro completo cargado · ${state.total} páginas`
+      preloadLabel.textContent = state.complete ? `Libro completo preparado · ${state.total} páginas`
         : state.problem || (state.failed ? `${state.loaded}/${state.total} páginas · Algunas fallaron. Reanuda para reintentar.`
-          : `${state.paused ? 'En pausa' : 'Cargando todo el libro'} · ${state.loaded}/${state.total} páginas`);
+          : `${state.paused ? 'En pausa' : 'Preparando todas las páginas'} · ${state.loaded}/${state.total}`);
       preloadToggle.hidden = state.complete || !state.available;
       preloadToggle.textContent = state.paused ? 'Reanudar' : 'Pausar';
     }, state.complete || state.problem || state.paused ? 0 : 150);
@@ -96,7 +97,8 @@ function placeholder(number) {
 function updatePage(number) {
   if (number !== activePage) preloader.prioritize(number);
   activePage = number;
-  pageInput.value = number;
+  // Reassigning an unchanged value resets selection while the user types a jump.
+  if (pageInput.value !== String(number) && document.activeElement !== pageInput) pageInput.value = number;
   previous.disabled = number <= 1;
   next.disabled = number >= pdf.numPages;
   if (rendered.delete(number)) rendered.add(number);
@@ -141,36 +143,84 @@ function trimCache() {
   }
 }
 
-async function capturePreview(number, canvas) {
-  if (previews.has(number) || previewing.has(number)) return;
-  previewing.add(number);
-  let url;
-  try {
-    const small = document.createElement('canvas');
-    const scale = Math.min(1, 1100 / canvas.width, 1500 / canvas.height);
-    small.width = Math.max(1, Math.round(canvas.width * scale));
-    small.height = Math.max(1, Math.round(canvas.height * scale));
-    small.getContext('2d', { alpha: false }).drawImage(canvas, 0, 0, small.width, small.height);
-    const blob = await new Promise(resolve => small.toBlob(resolve, 'image/jpeg', 0.85));
-    if (!blob) return;
-    url = URL.createObjectURL(blob);
-    const image = new Image();
-    image.className = 'pdf-page-preview';
-    image.alt = '';
-    image.setAttribute('aria-hidden', 'true');
-    image.src = url;
-    await image.decode();
-    previews.set(number, { image, url });
-    document.getElementById(`page-${number}`).prepend(image);
-    trimCache();
-  } catch {
-    if (url) URL.revokeObjectURL(url);
-    // Keep the canvas if a device cannot produce a preview.
-  } finally {
-    previewing.delete(number);
-  }
+function previewUrl(number) {
+  return `${preloader.url(number)}&preview=2`;
 }
 
+function prepareVisual(number, response, cache, sourceCanvas = null) {
+  if (previewing.has(number)) return previewing.get(number);
+  const promise = (async () => {
+    let cached = cache ? await cache.match(previewUrl(number)) : null;
+    let natural;
+    let blob;
+    let task;
+    try {
+      if (cached) {
+        natural = { width: Number(cached.headers.get('X-PDF-Width')), height: Number(cached.headers.get('X-PDF-Height')) };
+        if (!(natural.width > 0 && natural.height > 0)) cached = null;
+      }
+      if (cached) {
+        blob = await cached.blob();
+      } else {
+        let canvas = sourceCanvas;
+        natural = pageSizes.get(number);
+        if (!canvas) {
+          const data = new Uint8Array(await response.arrayBuffer());
+          task = pdfjsLib.getDocument({ data, worker,
+            cMapUrl: root.dataset.cmapUrl, cMapPacked: true,
+            standardFontDataUrl: root.dataset.fontUrl });
+          const pageDocument = await task.promise;
+          const page = await pageDocument.getPage(1);
+          natural = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: Math.min(640 / natural.width, 880 / natural.height) });
+          canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvas, canvasContext: canvas.getContext('2d', { alpha: false }), viewport }).promise;
+        }
+        const small = document.createElement('canvas');
+        const scale = Math.min(1, 640 / canvas.width, 880 / canvas.height);
+        small.width = Math.max(1, Math.round(canvas.width * scale));
+        small.height = Math.max(1, Math.round(canvas.height * scale));
+        small.getContext('2d', { alpha: false }).drawImage(canvas, 0, 0, small.width, small.height);
+        blob = await new Promise(resolve => small.toBlob(resolve, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('No se pudo preparar la vista previa');
+        if (cache) await cache.put(previewUrl(number), new Response(blob, { headers: {
+          'Content-Type': 'image/jpeg', 'X-PDF-Width': String(natural.width), 'X-PDF-Height': String(natural.height),
+        } }));
+      }
+      if (previews.has(number)) return;
+      const url = URL.createObjectURL(blob);
+      const image = new Image();
+      image.className = 'pdf-page-preview';
+      image.alt = '';
+      image.setAttribute('aria-hidden', 'true');
+      image.src = url;
+      try { await image.decode(); } catch (error) { URL.revokeObjectURL(url); throw error; }
+      const anchor = captureAnchor();
+      const shell = document.getElementById(`page-${number}`);
+      pageSizes.set(number, natural);
+      const width = Math.min(Math.max(280, pagesElement.clientWidth - 28) / natural.width, 1.6) * zoom * natural.width;
+      shell.style.width = `${width}px`;
+      shell.style.height = `${width * natural.height / natural.width}px`;
+      shell.querySelector('.page-placeholder')?.remove();
+      shell.prepend(image);
+      previews.set(number, { image, url });
+      restoreAnchor(anchor);
+      trimCache();
+    } finally {
+      await task?.destroy().catch(() => {});
+    }
+  })();
+  previewing.set(number, promise);
+  promise.finally(() => previewing.delete(number)).catch(() => {});
+  return promise;
+}
+
+function capturePreview(number, canvas) {
+  if (previews.has(number)) return;
+  prepareVisual(number, null, preloader.cache, canvas).catch(() => {});
+}
 async function getPage(number) {
   let entry = documents.get(number);
   if (!entry) {
@@ -339,7 +389,7 @@ async function renderPage(number, generation = renderGeneration) {
   } catch (error) {
     if (obsolete() || error.name === 'RenderingCancelledException') return;
     discardDocument(number);
-    if (!shell.querySelector('canvas')) {
+    if (!shell.querySelector('canvas') && !previews.has(number)) {
       const retry = document.createElement('button');
       retry.className = 'pdf-error';
       retry.textContent = 'No se pudo cargar la página. Reintentar';
@@ -370,6 +420,8 @@ function captureAnchor(clientX, clientY) {
 function restoreAnchor(anchor) {
   const rect = anchor.shell.getBoundingClientRect();
   pagesElement.scrollBy({ left: rect.left + anchor.fx * rect.width - anchor.x, top: rect.top + anchor.fy * rect.height - anchor.y, behavior: 'instant' });
+  lastScrollTop = pagesElement.scrollTop;
+  lastScrollTime = performance.now();
 }
 
 function updateActiveFromScroll() {
@@ -410,6 +462,7 @@ pagesElement.addEventListener('scroll', () => {
 function scrollToPage(number) {
   if (!pdf) return;
   const clamped = Math.max(1, Math.min(pdf.numPages, Math.trunc(Number(number)) || 1));
+  pageInput.value = clamped;
   document.getElementById(`page-${clamped}`).scrollIntoView({ block: 'start', behavior: 'instant' });
   fastScrolling = false;
   lastScrollTop = pagesElement.scrollTop;
@@ -545,8 +598,10 @@ function hideFind() {
 previous.addEventListener('click', () => scrollToPage(activePage - 1));
 next.addEventListener('click', () => scrollToPage(activePage + 1));
 pageInput.addEventListener('change', () => scrollToPage(pageInput.value));
+pageInput.addEventListener('blur', () => { pageInput.value = activePage; });
 zoomSelect.addEventListener('change', () => rerender(zoomSelect.value === 'fit' ? 1 : Number(zoomSelect.value)));
 pagesElement.addEventListener('wheel', event => {
+  if (document.activeElement === pageInput) pageInput.blur();
   if (!event.ctrlKey && !event.metaKey) return;
   event.preventDefault();
   const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pagesElement.clientHeight : 1);
