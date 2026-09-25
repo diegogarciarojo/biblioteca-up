@@ -9,7 +9,7 @@ Los PDFs, portadas y la base SQLite viven en el volumen persistente `library_dat
 Necesitas Docker Engine con el plugin Docker Compose, un registro A de `biblioteca.dns.army` apuntando a la IP pública de la VPS y los puertos TCP 80 y 443 abiertos en el Security Group de AWS y en el firewall del sistema. Si tu IP pública cambia, actualiza el registro de dynv6 o usa una Elastic IP. [Caddy obtiene y renueva HTTPS automáticamente](https://caddyserver.com/docs/automatic-https) cuando el dominio apunta a la VPS y esos puertos son accesibles.
 
 ```bash
-git clone URL_DE_TU_REPOSITORIO biblioteca-up
+git clone https://github.com/diegogarciarojo/biblioteca-up.git biblioteca-up
 cd biblioteca-up
 sh scripts/init-env.sh
 docker compose up -d --build
