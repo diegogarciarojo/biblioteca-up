@@ -6,26 +6,73 @@ Los PDFs, portadas y la base SQLite viven en el volumen persistente `library_dat
 
 ## Puesta en marcha en Ubuntu (AWS)
 
-Necesitas Docker Engine con el plugin Docker Compose, un registro A de `biblioteca.dns.army` apuntando a la IP pública de la VPS y los puertos TCP 80 y 443 abiertos en el Security Group de AWS y en el firewall del sistema. Si tu IP pública cambia, actualiza el registro de dynv6 o usa una Elastic IP. [Caddy obtiene y renueva HTTPS automáticamente](https://caddyserver.com/docs/automatic-https) cuando el dominio apunta a la VPS y esos puertos son accesibles.
+### 1. Dominio y puertos
+
+En la terminal de la VPS, consulta su IPv4 pública:
+
+```bash
+curl -4 https://api.ipify.org; echo
+```
+
+En dynv6, abre la zona `biblioteca.dns.army` y pon esa IP en el campo de dirección IPv4 (registro A). Si no configuraste IPv6 en la VPS, deja el registro AAAA vacío. En el **Security Group** de AWS permite tráfico entrante TCP 80 y 443 desde `0.0.0.0/0`. Si usas IPv6, permite también `::/0` en esos puertos. Si tienes UFW activo, permite igualmente 80 y 443. Puedes comprobar el DNS desde Ubuntu con `getent ahostsv4 biblioteca.dns.army`; debe mostrar la misma IP.
+
+Si la VPS usa una IP pública que cambia al detenerla, reserva una Elastic IP o configura la actualización dinámica de dynv6. La renovación del certificado necesita que el dominio siga apuntando a esta VPS.
+
+Comprueba que 80 y 443 estén libres antes de arrancar Caddy, sobre todo si 3x-ui u otro proxy está en la misma VPS:
+
+```bash
+sudo ss -ltnp | grep -E ':(80|443)[[:space:]]' || true
+```
+
+Si aparece un proceso usando esos puertos, resuelve ese conflicto antes de iniciar esta aplicación.
+
+### 2. Docker
+
+Si `docker compose version` funciona, pasa al paso 3. Si Docker no está instalado, usa el [repositorio oficial para Ubuntu](https://docs.docker.com/engine/install/ubuntu/):
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+Si ya tienes otra instalación de Docker pero no funciona Compose, revisa ese caso antes de ejecutar el bloque de instalación, para evitar conflictos con paquetes existentes.
+
+### 3. Aplicación y administrador
 
 ```bash
 git clone https://github.com/diegogarciarojo/biblioteca-up.git biblioteca-up
 cd biblioteca-up
 sh scripts/init-env.sh
-docker compose up -d --build
-docker compose exec app python manage.py createsuperuser
+sudo docker compose up -d --build
+sudo docker compose exec app python manage.py createsuperuser
 ```
 
-En `createsuperuser` eliges tu usuario y contraseña de administrador. Luego abre `https://biblioteca.dns.army/login`. El contenedor vuelve a iniciar tras reinicios de la VPS (`restart: unless-stopped`). Puedes ver su estado con `docker compose ps` y sus registros con `docker compose logs -f`.
+En `createsuperuser` eliges tu usuario y contraseña. Luego abre `https://biblioteca.dns.army/login`. Comprueba el estado con `sudo docker compose ps`, los mensajes de certificados con `sudo docker compose logs caddy --tail=80` y HTTPS con `curl -I https://biblioteca.dns.army`.
+
+[Caddy obtiene, renueva y guarda automáticamente los certificados](https://caddyserver.com/docs/automatic-https) en el volumen persistente `caddy_data`, siempre que el DNS apunte a la VPS y 80/443 sigan accesibles. No necesitas Certbot ni una tarea cron. Docker y los contenedores vuelven a iniciar tras reinicios (`restart: unless-stopped`).
 
 ## Actualizar y respaldar
 
-Para actualizar el código: `git pull && docker compose up -d --build`. El volumen de libros se conserva. Antes de cambios importantes, respalda el volumen `library_data` y el archivo `.env`; un clon de Git por sí solo no contiene la biblioteca subida. Para exportar los datos con Docker:
+Para actualizar el código: `git pull && sudo docker compose up -d --build`. El volumen de libros se conserva. Antes de cambios importantes, respalda el volumen `library_data` y el archivo `.env`; un clon de Git por sí solo no contiene la biblioteca subida. Para exportar los datos con Docker:
 
 ```bash
-docker compose stop app
-docker run --rm -v "$(basename "$PWD")_library_data:/source:ro" -v "$PWD:/backup" alpine tar czf /backup/biblioteca-datos.tar.gz -C /source .
-docker compose start app
+sudo docker compose stop app
+sudo docker run --rm -v "$(basename "$PWD")_library_data:/source:ro" -v "$PWD:/backup" alpine tar czf /backup/biblioteca-datos.tar.gz -C /source .
+sudo docker compose start app
 ```
 
 Comprueba el nombre real del volumen con `docker volume ls` si cambiaste el nombre del proyecto Compose. Conserva la copia fuera de la VPS.
