@@ -56,6 +56,10 @@ valid_domain() {
     done
 }
 
+valid_email() {
+    [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]
+}
+
 say "Instalación de Biblioteca UP"
 USE_DOMAIN=0
 DOMAIN=""
@@ -257,17 +261,6 @@ EOF
 mv -f "$ENV_FILE.tmp" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-cat > "$INSTALL_DIR/deploy/Caddyfile.runtime" <<EOF
-$SITE_ADDRESS {
-    encode zstd gzip
-    request_body {
-        max_size 1100MB
-    }
-    reverse_proxy $APP_NAME:8000
-}
-EOF
-chmod 644 "$INSTALL_DIR/deploy/Caddyfile.runtime"
-
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
     ufw allow 80/tcp
     if (( USE_DOMAIN )); then ufw allow 443/tcp; fi
@@ -276,8 +269,6 @@ fi
 say "Construyendo la aplicación y preparando Caddy..."
 docker build -t biblioteca-up:local "$INSTALL_DIR"
 docker pull caddy:2.11.4-alpine
-docker run --rm -v "$INSTALL_DIR/deploy/Caddyfile.runtime:/etc/caddy/Caddyfile:ro" \
-    caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || docker network create "$NETWORK_NAME" >/dev/null
 for volume in "$VOLUME_DATA" "$VOLUME_CADDY_DATA" "$VOLUME_CADDY_CONFIG"; do
     docker volume create "$volume" >/dev/null
@@ -308,6 +299,50 @@ if (( ! ready )); then
     die "La aplicación no respondió a tiempo."
 fi
 
+if ! docker exec "$APP_NAME" python manage.py shell -c \
+    'from django.contrib.auth import get_user_model; import sys; sys.exit(0 if get_user_model().objects.filter(is_superuser=True).exists() else 1)' >/dev/null 2>&1; then
+    say "Crea ahora el usuario y la contraseña del administrador:"
+    if (( USE_DOMAIN )); then
+        say "El correo del administrador se usará también como contacto para el certificado HTTPS."
+    fi
+    docker exec -it "$APP_NAME" python manage.py createsuperuser
+fi
+
+if (( USE_DOMAIN )); then
+    ACME_EMAIL="$(docker exec "$APP_NAME" python manage.py shell -c \
+        'from django.contrib.auth import get_user_model; print(get_user_model().objects.filter(is_superuser=True).exclude(email="").order_by("pk").values_list("email", flat=True).first() or "")' | tail -n 1)"
+    while ! valid_email "$ACME_EMAIL"; do
+        ACME_EMAIL="$(prompt 'Correo de contacto para el certificado HTTPS: ')"
+    done
+    cat > "$INSTALL_DIR/deploy/Caddyfile.runtime" <<EOF
+{
+    acme_ca https://acme.zerossl.com/v2/DV90
+    email $ACME_EMAIL
+}
+
+$SITE_ADDRESS {
+    encode zstd gzip
+    request_body {
+        max_size 1100MB
+    }
+    reverse_proxy $APP_NAME:8000
+}
+EOF
+else
+    cat > "$INSTALL_DIR/deploy/Caddyfile.runtime" <<EOF
+$SITE_ADDRESS {
+    encode zstd gzip
+    request_body {
+        max_size 1100MB
+    }
+    reverse_proxy $APP_NAME:8000
+}
+EOF
+fi
+chmod 644 "$INSTALL_DIR/deploy/Caddyfile.runtime"
+docker run --rm -v "$INSTALL_DIR/deploy/Caddyfile.runtime:/etc/caddy/Caddyfile:ro" \
+    caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
 caddy_ports=(-p 80:80)
 if (( USE_DOMAIN )); then caddy_ports+=(-p 443:443); fi
 docker run -d --name "$CADDY_NAME" --label "$MANAGED_LABEL" \
@@ -322,10 +357,25 @@ if [[ "$(docker inspect -f '{{.State.Running}}' "$CADDY_NAME")" != "true" ]]; th
     die "Caddy no pudo iniciar."
 fi
 
-if ! docker exec "$APP_NAME" python manage.py shell -c \
-    'from django.contrib.auth import get_user_model; import sys; sys.exit(0 if get_user_model().objects.filter(is_superuser=True).exists() else 1)' >/dev/null 2>&1; then
-    say "Crea ahora el usuario y la contraseña del administrador:"
-    docker exec -it "$APP_NAME" python manage.py createsuperuser
+if (( USE_DOMAIN && DNS_ALREADY_POINTS )); then
+    say "Esperando el certificado HTTPS válido de $DOMAIN..."
+    https_ready=0
+    for attempt in {1..90}; do
+        if curl -fsS --connect-timeout 3 --max-time 8 --resolve "$DOMAIN:443:127.0.0.1" \
+            "https://$DOMAIN/health/" >/dev/null 2>&1; then
+            https_ready=1
+            break
+        fi
+        if (( attempt % 15 == 0 )); then
+            say "Caddy sigue solicitando el certificado (${attempt} de 90 comprobaciones)."
+        fi
+        sleep 3
+    done
+    if (( ! https_ready )); then
+        docker logs --tail 35 "$CADDY_NAME" >&2
+        die "HTTPS aún no responde con un certificado válido. Revisa los mensajes de Caddy anteriores."
+    fi
+    say "HTTPS verificado con un certificado válido."
 fi
 
 say "Biblioteca UP está instalada: $PUBLIC_URL"
