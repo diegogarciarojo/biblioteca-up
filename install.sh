@@ -128,8 +128,19 @@ address = ipaddress.ip_address(sys.argv[1])
 assert isinstance(address, ipaddress.IPv4Address) and address.is_global
 PY
 
+dns_points_here() {
+    local addresses
+    addresses="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+    [[ "$addresses" == "$PUBLIC_IP" ]]
+}
+
 if (( USE_DOMAIN )); then
     say "IPv4 pública: $PUBLIC_IP"
+    DNS_ALREADY_POINTS=0
+    if dns_points_here; then
+        DNS_ALREADY_POINTS=1
+        say "El registro A de $DOMAIN ya apunta a esta VPS."
+    fi
     if [[ "$DOMAIN" == *.dns.army || "$DOMAIN" == *.dns.navy || "$DOMAIN" == *.dynv6.net ]]; then
         install -m 0700 -d "$CONFIG_DIR"
         if [[ -s "$CONFIG_DIR/dynv6.token" && -f "$CONFIG_DIR/dynv6.zone" && "$(cat "$CONFIG_DIR/dynv6.zone")" == "$DOMAIN" ]]; then
@@ -153,8 +164,7 @@ if (( USE_DOMAIN )); then
         CONFIGURE_DYNV6=0
     fi
     if (( ! CONFIGURE_DYNV6 )); then
-        DNS_IPS="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
-        if ! printf '%s\n' "$DNS_IPS" | grep -Fxq "$PUBLIC_IP"; then
+        if (( ! DNS_ALREADY_POINTS )); then
             die "El registro A de $DOMAIN no apunta a $PUBLIC_IP. Configúralo en tu proveedor DNS o vuelve a ejecutar el instalador con el token de dynv6."
         fi
     fi
@@ -170,17 +180,19 @@ else
 fi
 
 if (( USE_DOMAIN && CONFIGURE_DYNV6 )); then
-    say "Actualizando dynv6..."
-    DNS_UPDATE_PENDING=0
-    if python3 "$INSTALL_DIR/scripts/update_dynv6.py" "$PUBLIC_IP"; then
-        :
+    if (( DNS_ALREADY_POINTS )); then
+        say "dynv6 ya tiene la IPv4 correcta; configuraré solo su actualización periódica."
     else
-        update_status=$?
-        if [[ "$update_status" == "2" ]]; then
-            die "dynv6 rechazó el token HTTP. Corrige $CONFIG_DIR/dynv6.token y repite el instalador."
+        say "Actualizando dynv6..."
+        if python3 "$INSTALL_DIR/scripts/update_dynv6.py" "$PUBLIC_IP"; then
+            :
+        else
+            update_status=$?
+            if [[ "$update_status" == "2" ]]; then
+                die "dynv6 rechazó el token HTTP. Corrige $CONFIG_DIR/dynv6.token y repite el instalador."
+            fi
+            say "Continuaré la instalación; dynv6 se volverá a intentar automáticamente cada 10 minutos."
         fi
-        DNS_UPDATE_PENDING=1
-        say "Continuaré la instalación; dynv6 se volverá a intentar automáticamente cada 10 minutos."
     fi
     cat > /etc/systemd/system/biblioteca-up-dynv6.service <<EOF
 [Unit]
@@ -320,8 +332,10 @@ say "Biblioteca UP está instalada: $PUBLIC_URL"
 say "Administración: $PUBLIC_URL/login"
 if (( USE_DOMAIN )); then
     say "Caddy solicitará y renovará el certificado HTTPS automáticamente. Abre TCP 80 y 443 en el Security Group de AWS."
-    if (( ${DNS_UPDATE_PENDING:-0} )); then
-        say "El DNS aún no se actualizó. HTTPS quedará pendiente hasta que dynv6 responda y el registro A apunte a $PUBLIC_IP."
+    if dns_points_here; then
+        say "DNS verificado: $DOMAIN apunta a $PUBLIC_IP."
+    else
+        say "DNS pendiente: HTTPS quedará pendiente hasta que el registro A de $DOMAIN apunte a $PUBLIC_IP."
     fi
 else
     say "Sin dominio, el acceso es por HTTP. Puedes repetir el instalador más tarde para activar HTTPS con un dominio."
