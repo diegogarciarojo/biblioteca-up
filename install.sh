@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Run from an interactive terminal: curl -fsSL URL | sudo bash
+# Run from an interactive terminal: sudo bash -c "$(curl -fsSL URL)"
 REPO_URL="https://github.com/diegogarciarojo/biblioteca-up.git"
 INSTALL_DIR="/opt/biblioteca-up"
 CONFIG_DIR="/etc/biblioteca-up"
@@ -18,8 +18,7 @@ die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 trap 'printf "\nLa instalación se detuvo en la línea %s. Revisa el error anterior.\n" "$LINENO" >&2' ERR
 
 [[ "$EUID" -eq 0 ]] || die "Ejecuta el instalador con sudo."
-[[ -r /dev/tty && -w /dev/tty ]] || die "Ejecuta este comando desde una terminal interactiva."
-exec 3<>/dev/tty
+[[ -t 0 ]] || die "Este instalador necesita la entrada de la terminal. Usa el comando actualizado del README."
 
 if [[ ! -r /etc/os-release ]]; then
     die "Este instalador requiere Ubuntu."
@@ -29,8 +28,8 @@ fi
 
 prompt() {
     local answer
-    printf '%s' "$1" >&3
-    IFS= read -r -u 3 answer
+    printf '%s' "$1" >&2
+    IFS= read -r answer
     printf '%s' "$answer"
 }
 
@@ -63,7 +62,8 @@ DOMAIN=""
 CONFIGURE_DYNV6=0
 if confirm_default_yes "¿Quieres configurar un dominio con HTTPS? [S/n]: "; then
     USE_DOMAIN=1
-    DOMAIN="$(prompt 'Dominio [biblioteca.dns.army]: ')"
+    say "Dominio seleccionado. Escribe tu dominio o pulsa Enter para usar biblioteca.dns.army."
+    DOMAIN="$(prompt 'Dominio: ')"
     DOMAIN="${DOMAIN:-biblioteca.dns.army}"
     DOMAIN="${DOMAIN,,}"
     valid_domain "$DOMAIN" || die "El dominio no tiene un formato válido. Escribe solo el nombre, sin https:// ni rutas."
@@ -137,9 +137,9 @@ if (( USE_DOMAIN )); then
             say "Usaré el token dynv6 guardado para $DOMAIN."
         elif confirm "¿Quieres que actualice automáticamente el DNS de dynv6? Necesitarás el token HTTP de esta zona. [s/N]: "; then
             CONFIGURE_DYNV6=1
-            printf 'Token HTTP de dynv6 (entrada oculta): ' >&3
-            IFS= read -r -s -u 3 DYNV6_TOKEN
-            printf '\n' >&3
+            printf 'Token HTTP de dynv6 (entrada oculta): ' >&2
+            IFS= read -r -s DYNV6_TOKEN
+            printf '\n' >&2
             [[ -n "$DYNV6_TOKEN" ]] || die "El token de dynv6 está vacío."
             umask 077
             printf '%s\n' "$DOMAIN" > "$CONFIG_DIR/dynv6.zone"
@@ -303,7 +303,7 @@ fi
 if ! docker exec "$APP_NAME" python manage.py shell -c \
     'from django.contrib.auth import get_user_model; import sys; sys.exit(0 if get_user_model().objects.filter(is_superuser=True).exists() else 1)' >/dev/null 2>&1; then
     say "Crea ahora el usuario y la contraseña del administrador:"
-    docker exec -it "$APP_NAME" python manage.py createsuperuser <&3
+    docker exec -it "$APP_NAME" python manage.py createsuperuser
 fi
 
 say "Biblioteca UP está instalada: $PUBLIC_URL"

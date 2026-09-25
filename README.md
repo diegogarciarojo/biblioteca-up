@@ -7,7 +7,7 @@ Catálogo público de libros PDF: búsqueda, portada generada desde la primera p
 Pega **una sola línea** en la terminal de tu VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/diegogarciarojo/biblioteca-up/main/install.sh | sudo bash
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/diegogarciarojo/biblioteca-up/main/install.sh)"
 ```
 
 El instalador pregunta si quieres dominio, propone `biblioteca.dns.army`, prepara Docker, descarga la aplicación, configura el proxy y te pide el usuario y contraseña de administrador. Si eliges un dominio de dynv6, puede pedirte el **token HTTP de esa zona** para apuntar el registro A a la IPv4 actual y mantenerlo actualizado cada 10 minutos. El token se introduce de forma oculta y se guarda solo en la VPS. Si no proporcionas token, el dominio debe apuntar ya a la IPv4 de la VPS. Para un proveedor distinto de dynv6, crea el registro A en su panel antes de instalar.
