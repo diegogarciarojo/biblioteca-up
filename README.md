@@ -40,7 +40,11 @@ sudo docker start biblioteca-up-app
 
 ## Desarrollo local
 
-En computadora, **Ctrl + rueda sobre el PDF** cambia solamente el zoom del documento (50–300%); la barra conserva su tamaño. Las páginas recientes se mantienen en una caché limitada del navegador y las vecinas se preparan después de la página elegida. Al saltar lejos se cancelan las cargas pendientes que ya no sirven. La VPS conserva hasta 64 páginas generadas durante 24 horas (solo entradas de hasta 8 MB); esa caché se regenera automáticamente y no forma parte de los respaldos necesarios. La primera visita a una página todavía depende de su complejidad, la conexión y la VPS; no se garantiza una carga instantánea de páginas sin descargar.
+En computadora, **Ctrl + rueda sobre el PDF** cambia solamente el zoom del documento (50–300%); la barra conserva su tamaño. Al abrir un libro se muestra primero la página elegida y luego se **precargan todas las páginas** en el almacenamiento del navegador, con dos descargas simultáneas y prioridad para la lectura. El indicador muestra cuántas están guardadas y permite pausar o reanudar. Solo anuncia «Libro completo cargado» cuando se guardaron todas; desde entonces los saltos no necesitan descargar otra página, aunque PDF.js todavía debe dibujarla. Solo se mantienen unas pocas páginas dibujadas en RAM.
+
+La precarga requiere HTTPS (o localhost), espacio disponible y dejar abierta la pestaña. Al volver a abrir el libro continúa desde las páginas guardadas; si cambió el archivo original se utiliza una caché distinta. Descargar todo un libro grande puede tardar varios minutos y las páginas independientes pueden ocupar más que el PDF original por los recursos compartidos. Si falla una descarga se puede reintentar; si falta espacio se informa y la lectura individual sigue funcionando. El navegador puede borrar esta caché para recuperar espacio: no sustituye un respaldo ni garantiza que toda la web funcione sin conexión. La VPS conserva hasta 64 páginas generadas durante 24 horas (entradas de hasta 8 MB); esa caché se regenera y no requiere respaldo.
+
+Pruebas: `python manage.py test catalog tests --noinput` y `node --test tests/book-preloader.test.mjs`.
 
 Con Python 3.12: crea un entorno virtual, instala `requirements.txt`, configura `.env` con `sh scripts/init-env.sh`, ejecuta `python manage.py migrate` y `python manage.py runserver` con `DJANGO_DEBUG=1`. Los recursos de PDF.js y las fuentes se incluyen en el repositorio; sus licencias están en `static/pdfjs/LICENSE` y `static/fonts/LICENSE-*.txt`.
 

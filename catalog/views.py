@@ -35,7 +35,14 @@ def book_detail(request, book_id):
 
 
 def read_book(request, book_id):
-    return render(request, "catalog/reader.html", {"book": get_object_or_404(Book, pk=book_id)})
+    book = get_object_or_404(Book, pk=book_id)
+    try:
+        stat = Path(book.pdf.path).stat()
+    except (FileNotFoundError, ValueError):
+        raise Http404("PDF no disponible")
+    return render(request, "catalog/reader.html", {
+        "book": book, "pdf_version": f"{stat.st_size}-{stat.st_mtime_ns}",
+    })
 
 
 @require_GET

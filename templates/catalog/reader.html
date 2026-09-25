@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="{% static 'css/reader.css' %}">
 </head>
 <body class="reader-body">
-  <div id="reader" data-page-url-template="{% url 'pdf_page' book.id 123456789 %}" data-pages="{{ book.pages }}" data-search-url="{% url 'search_book' book.id %}" data-worker-url="{% static 'pdfjs/pdf.worker.mjs' %}" data-cmap-url="/static/pdfjs/cmaps/" data-font-url="/static/pdfjs/standard_fonts/">
+  <div id="reader" data-book-id="{{ book.id }}" data-version="{{ pdf_version }}" data-page-url-template="{% url 'pdf_page' book.id 123456789 %}" data-pages="{{ book.pages }}" data-search-url="{% url 'search_book' book.id %}" data-worker-url="{% static 'pdfjs/pdf.worker.mjs' %}" data-cmap-url="/static/pdfjs/cmaps/" data-font-url="/static/pdfjs/standard_fonts/">
     <header class="reader-toolbar">
       <a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">←</a>
       <div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Biblioteca UP" }}</span></div>
@@ -38,6 +38,11 @@
     </div>
     <div id="reader-status" class="reader-status" role="status">Preparando el libro…</div>
     <main id="pdf-pages" class="pdf-pages" aria-label="Páginas de {{ book.title }}"></main>
+    <aside class="reader-preload" aria-label="Carga del libro completo">
+      <progress id="preload-progress" value="0" max="{{ book.pages }}" aria-label="Páginas guardadas"></progress>
+      <span id="preload-label" role="status">Preparando la carga completa…</span>
+      <button id="preload-toggle" type="button">Pausar</button>
+    </aside>
   </div>
   <script type="module" src="{% static 'js/reader.js' %}"></script>
 </body>

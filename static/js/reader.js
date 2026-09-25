@@ -1,4 +1,5 @@
 import * as pdfjsLib from '../pdfjs/pdf.mjs';
+import { BookPreloader } from './book-preloader.js';
 
 const root = document.getElementById('reader');
 const pagesElement = document.getElementById('pdf-pages');
@@ -42,6 +43,44 @@ let lastScrollTime = performance.now();
 let queue = [];
 let layoutWidth = pagesElement.clientWidth;
 pageInput.max = pdf.numPages;
+const preloadLabel = document.getElementById('preload-label');
+const preloadProgress = document.getElementById('preload-progress');
+const preloadToggle = document.getElementById('preload-toggle');
+let progressTimer;
+let preloadState;
+const preloader = new BookPreloader({
+  total: pdf.numPages,
+  name: `biblioteca-book-v1-${root.dataset.bookId}-${root.dataset.version}`,
+  url: number => {
+    const url = new URL(root.dataset.pageUrlTemplate.replace('123456789', String(number)), location.href);
+    url.searchParams.set('v', root.dataset.version);
+    return url.href;
+  },
+  busy: () => fastScrolling || zoomPending || rendering.size > 0,
+  onProgress: state => {
+    preloadState = state;
+    if (state.complete || state.problem || state.paused) {
+      clearTimeout(progressTimer);
+      progressTimer = null;
+    }
+    if (progressTimer) return;
+    progressTimer = setTimeout(() => {
+      progressTimer = null;
+      const state = preloadState;
+      preloadProgress.value = state.loaded;
+      preloadLabel.textContent = state.complete ? `Libro completo cargado · ${state.total} páginas`
+        : state.problem || (state.failed ? `${state.loaded}/${state.total} páginas · Algunas fallaron. Reanuda para reintentar.`
+          : `${state.paused ? 'En pausa' : 'Cargando todo el libro'} · ${state.loaded}/${state.total} páginas`);
+      preloadToggle.hidden = state.complete || !state.available;
+      preloadToggle.textContent = state.paused ? 'Reanudar' : 'Pausar';
+    }, state.complete || state.problem || state.paused ? 0 : 150);
+  },
+});
+preloadToggle.addEventListener('click', () => preloader.toggle());
+window.addEventListener('pagehide', () => preloader.stop());
+window.addEventListener('pageshow', event => {
+  if (event.persisted) { preloader.stopped = false; preloader.start(); }
+});
 
 function setStatus(message) { status.textContent = message; }
 
@@ -53,6 +92,7 @@ function placeholder(number) {
 }
 
 function updatePage(number) {
+  if (number !== activePage) preloader.prioritize(number);
   activePage = number;
   pageInput.value = number;
   previous.disabled = number <= 1;
@@ -71,7 +111,8 @@ function updatePage(number) {
 function discardDocument(number) {
   const entry = documents.get(number);
   documents.delete(number);
-  entry?.task.destroy().catch(() => {});
+  entry?.controller.abort();
+  entry?.task?.destroy().catch(() => {});
 }
 
 function trimCache() {
@@ -98,16 +139,19 @@ function trimCache() {
 async function getPage(number) {
   let entry = documents.get(number);
   if (!entry) {
-    const task = pdfjsLib.getDocument({
-      url: root.dataset.pageUrlTemplate.replace('123456789', String(number)),
-      worker,
-      cMapUrl: root.dataset.cmapUrl,
-      cMapPacked: true,
-      standardFontDataUrl: root.dataset.fontUrl,
-      disableRange: true,
-    });
-    entry = { task };
-    entry.promise = task.promise.then(doc => doc.getPage(1)).then(page => (entry.page = page));
+    entry = { controller: new AbortController() };
+    entry.promise = (async () => {
+      const data = await preloader.bytes(number, entry.controller.signal);
+      entry.controller.signal.throwIfAborted();
+      entry.task = pdfjsLib.getDocument({
+        data, worker,
+        cMapUrl: root.dataset.cmapUrl,
+        cMapPacked: true,
+        standardFontDataUrl: root.dataset.fontUrl,
+      });
+      const doc = await entry.task.promise;
+      return (entry.page = await doc.getPage(1));
+    })();
     documents.set(number, entry);
   } else {
     documents.delete(number);
@@ -271,6 +315,7 @@ async function renderPage(number, generation = renderGeneration) {
     trimCache();
     if (obsolete() && Math.abs(activePage - number) <= 1) queue.unshift(number);
     pumpQueue();
+    if (number === activePage && rendered.has(number)) preloader.start();
   }
 }
 
