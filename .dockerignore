@@ -5,4 +5,5 @@ __pycache__
 *.pyc
 data
 staticfiles
+deploy/Caddyfile.runtime
 .pytest_cache
