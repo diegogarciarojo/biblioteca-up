@@ -7,6 +7,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import AuthenticationForm
 from django.conf import settings
+from django.core.cache import caches
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -174,12 +175,27 @@ def pdf_page(request, book_id, page_number):
     if page_number < 1 or page_number > book.pages:
         raise Http404("Página no encontrada")
     try:
-        with fitz.open(book.pdf.path) as source:
-            if page_number > source.page_count:
-                raise Http404("Página no encontrada")
-            with fitz.open() as single_page:
-                single_page.insert_pdf(source, from_page=page_number - 1, to_page=page_number - 1)
-                content = single_page.tobytes()
+        source_path = Path(book.pdf.path)
+        stat = source_path.stat()
+        key = f"pdf-v1:{book.pk}:{stat.st_size}:{stat.st_mtime_ns}:{page_number}"
+        page_cache = caches["pdf_pages"]
+        try:
+            content = page_cache.get(key)
+        except OSError:
+            content = None
+        if content is None:
+            with fitz.open(source_path) as source:
+                if page_number > source.page_count:
+                    raise Http404("Página no encontrada")
+                with fitz.open() as single_page:
+                    single_page.insert_pdf(source, from_page=page_number - 1, to_page=page_number - 1)
+                    content = single_page.tobytes()
+            # Bound disk usage; unusual oversized pages are still served normally.
+            if len(content) <= 8 * 1024 * 1024:
+                try:
+                    page_cache.set(key, content)
+                except OSError:
+                    pass  # A full/unavailable cache must not break reading.
     except (FileNotFoundError, ValueError, fitz.FileDataError):
         raise Http404("PDF no disponible")
     response = HttpResponse(content, content_type="application/pdf")

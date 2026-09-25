@@ -60,6 +60,15 @@ DATABASES = {"default": {
 }}
 MEDIA_ROOT = DATA_DIR / "media"
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "pdf_pages": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": DATA_DIR / "page-cache",
+        "TIMEOUT": 86400,
+        "OPTIONS": {"MAX_ENTRIES": 64},
+    },
+}
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]

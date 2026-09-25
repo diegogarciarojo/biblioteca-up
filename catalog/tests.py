@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import fitz
 from django.contrib.auth import get_user_model
@@ -14,7 +15,13 @@ from .models import BookPageText
 class LibraryFlowTests(TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.override = override_settings(MEDIA_ROOT=self.temp.name)
+        self.override = override_settings(MEDIA_ROOT=self.temp.name, CACHES={
+            "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+            "pdf_pages": {
+                "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+                "LOCATION": Path(self.temp.name) / "page-cache",
+            },
+        })
         self.override.enable()
         self.addCleanup(self.override.disable)
         self.addCleanup(self.temp.cleanup)
@@ -140,3 +147,29 @@ class LibraryFlowTests(TestCase):
         self.assertTrue(second["complete"])
         self.assertEqual(second["indexed_pages"], 22)
         self.assertEqual(second["matches"], [22])
+
+    def test_page_cache_reuses_extraction_and_invalidates_changed_source(self):
+        book = self.upload()
+        url = reverse("pdf_page", args=[book.id, 1])
+        first = self.client.get(url)
+        self.assertEqual(first.status_code, 200)
+        with patch("catalog.views.fitz.open", side_effect=AssertionError("PDF reopened")):
+            self.assertEqual(self.client.get(url).content, first.content)
+        with fitz.open() as replacement:
+            replacement.new_page().insert_text((72, 72), "Contenido reemplazado y diferente")
+            Path(book.pdf.path).write_bytes(replacement.tobytes())
+        updated = self.client.get(url)
+        with fitz.open(stream=updated.content, filetype="pdf") as document:
+            self.assertIn("Contenido reemplazado", document[0].get_text())
+        Path(book.pdf.path).unlink()
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_page_still_loads_when_disk_cache_is_unavailable(self):
+        book = self.upload()
+        with patch("django.core.cache.backends.filebased.FileBasedCache.get", side_effect=OSError), patch(
+            "django.core.cache.backends.filebased.FileBasedCache.set", side_effect=OSError
+        ):
+            response = self.client.get(reverse("pdf_page", args=[book.id, 1]))
+        self.assertEqual(response.status_code, 200)
+        with fitz.open(stream=response.content, filetype="pdf") as document:
+            self.assertIn("Libro de prueba", document[0].get_text())
