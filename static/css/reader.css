@@ -11,6 +11,7 @@
 .pdf-pages{overflow-anchor:none;scroll-behavior:auto}
 .pdf-page{isolation:isolate;aspect-ratio:3/4;min-height:0;flex:none}
 .pdf-page-content{position:absolute;top:0;left:0;transform-origin:0 0}
+.pdf-page-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;user-select:none}
 .reader-preload{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:9px;padding:9px 12px;background:#fff;color:#24443a;box-shadow:0 3px 18px #18292d30;border:1px solid #cbd6d0;border-radius:9px;max-width:calc(100vw - 24px);font-size:.75rem;width:max-content}
 .reader-preload progress{width:65px;height:6px;accent-color:#28705c;flex-shrink:0}
 .reader-preload button{border:0;border-radius:5px;background:#e8f0eb;color:#24443a;padding:6px 8px;font:inherit;cursor:pointer;flex-shrink:0}

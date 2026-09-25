@@ -32,6 +32,8 @@ const rendering = new Map();
 const rendered = new Set();
 const documents = new Map();
 const pageSizes = new Map();
+const previews = new Map();
+const previewing = new Set();
 const worker = new pdfjsLib.PDFWorker();
 let zoom = 1;
 let zoomTimer;
@@ -124,15 +126,48 @@ function trimCache() {
   for (const number of rendered) {
     if (rendered.size <= 6 && pixels <= 24000000) break;
     if (number === activePage || rendering.has(number)) continue;
+    // Never replace a visited page with an empty placeholder while it redraws.
+    const preview = previews.get(number);
+    if (!preview) continue;
     const shell = document.getElementById(`page-${number}`);
     const canvas = shell.querySelector('canvas');
     pixels -= canvas ? canvas.width * canvas.height : 0;
-    shell.replaceChildren(placeholder(number));
+    shell.replaceChildren(preview.image);
     rendered.delete(number);
   }
   for (const number of documents.keys()) {
     if (documents.size <= 8) break;
     if (number !== activePage && !rendering.has(number)) discardDocument(number);
+  }
+}
+
+async function capturePreview(number, canvas) {
+  if (previews.has(number) || previewing.has(number)) return;
+  previewing.add(number);
+  let url;
+  try {
+    const small = document.createElement('canvas');
+    const scale = Math.min(1, 1100 / canvas.width, 1500 / canvas.height);
+    small.width = Math.max(1, Math.round(canvas.width * scale));
+    small.height = Math.max(1, Math.round(canvas.height * scale));
+    small.getContext('2d', { alpha: false }).drawImage(canvas, 0, 0, small.width, small.height);
+    const blob = await new Promise(resolve => small.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob) return;
+    url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.className = 'pdf-page-preview';
+    image.alt = '';
+    image.setAttribute('aria-hidden', 'true');
+    image.src = url;
+    await image.decode();
+    previews.set(number, { image, url });
+    document.getElementById(`page-${number}`).prepend(image);
+    trimCache();
+  } catch {
+    if (url) URL.revokeObjectURL(url);
+    // Keep the canvas if a device cannot produce a preview.
+  } finally {
+    previewing.delete(number);
   }
 }
 
@@ -288,11 +323,13 @@ async function renderPage(number, generation = renderGeneration) {
     const anchor = captureAnchor();
     shell.style.width = `${viewport.width}px`;
     shell.style.height = `${viewport.height}px`;
-    shell.replaceChildren(content);
+    const preview = previews.get(number);
+    shell.replaceChildren(...(preview ? [preview.image, content] : [content]));
     shell.dataset.generation = generation;
     restoreAnchor(anchor);
     rendered.delete(number);
     rendered.add(number);
+    capturePreview(number, canvas);
     if (number === activePage) setStatus('');
     paintMatches(number);
     if (pendingMatchPage === number) {
