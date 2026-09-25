@@ -305,7 +305,7 @@ pagesElement.addEventListener('scroll', () => {
   requestAnimationFrame(() => { scrollScheduled = false; updateActiveFromScroll(); });
 }, { passive: true });
 
-function scrollToPage(number, immediate = false) {
+function scrollToPage(number) {
   if (!pdf) return;
   const clamped = Math.max(1, Math.min(pdf.numPages, Math.trunc(Number(number)) || 1));
   document.getElementById(`page-${clamped}`).scrollIntoView({ block: 'start', behavior: 'instant' });
@@ -320,16 +320,21 @@ function rerender(nextZoom = zoom, clientX, clientY) {
   renderGeneration += 1;
   zoomPending = true;
   for (const job of rendering.values()) job.renderTask?.cancel();
-  document.querySelectorAll('.pdf-page').forEach((shell, index) => {
+  // Read geometry together before changing styles: large books may have 1000 shells.
+  const layouts = [...document.querySelectorAll('.pdf-page')].map((shell, index) => {
     const natural = pageSizes.get(index + 1);
-    const width = natural ? Math.min(Math.max(280, pagesElement.clientWidth - 28) / natural.width, 1.6) * zoom * natural.width : shell.getBoundingClientRect().width * ratio * pagesElement.clientWidth / layoutWidth;
-    const height = natural ? width * natural.height / natural.width : shell.getBoundingClientRect().height * width / shell.getBoundingClientRect().width;
+    const rect = shell.getBoundingClientRect();
+    const width = natural ? Math.min(Math.max(280, pagesElement.clientWidth - 28) / natural.width, 1.6) * zoom * natural.width : rect.width * ratio * pagesElement.clientWidth / layoutWidth;
+    const height = natural ? width * natural.height / natural.width : rect.height * width / rect.width;
+    return { shell, width, height };
+  });
+  for (const { shell, width, height } of layouts) {
     shell.style.width = `${width}px`;
     shell.style.height = `${height}px`;
     const content = shell.querySelector('.pdf-page-content');
     if (content) content.style.transform = `scale(${width / parseFloat(content.style.width)})`;
     shell.querySelector('.search-highlights')?.remove();
-  });
+  }
   layoutWidth = pagesElement.clientWidth;
   restoreAnchor(anchor);
   clearTimeout(zoomTimer);
@@ -349,7 +354,7 @@ function goToMatch(index) {
   pendingMatchPage = rendered.has(number) ? null : number;
   updateFindCount();
   if (oldPage && oldPage !== number && rendered.has(oldPage)) paintMatches(oldPage);
-  scrollToPage(number, true);
+  scrollToPage(number);
   if (rendered.has(number)) {
     paintMatches(number);
     document.getElementById(`page-${number}`).querySelector('.search-hit.is-current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -434,7 +439,7 @@ function hideFind() {
 
 previous.addEventListener('click', () => scrollToPage(activePage - 1));
 next.addEventListener('click', () => scrollToPage(activePage + 1));
-pageInput.addEventListener('change', () => scrollToPage(pageInput.value, true));
+pageInput.addEventListener('change', () => scrollToPage(pageInput.value));
 zoomSelect.addEventListener('change', () => rerender(zoomSelect.value === 'fit' ? 1 : Number(zoomSelect.value)));
 pagesElement.addEventListener('wheel', event => {
   if (!event.ctrlKey && !event.metaKey) return;
