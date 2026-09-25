@@ -171,7 +171,17 @@ fi
 
 if (( USE_DOMAIN && CONFIGURE_DYNV6 )); then
     say "Actualizando dynv6..."
-    python3 "$INSTALL_DIR/scripts/update_dynv6.py" || die "No pude actualizar dynv6; verifica el token HTTP. Para cambiarlo, edita $CONFIG_DIR/dynv6.token y repite el instalador."
+    DNS_UPDATE_PENDING=0
+    if python3 "$INSTALL_DIR/scripts/update_dynv6.py" "$PUBLIC_IP"; then
+        :
+    else
+        update_status=$?
+        if [[ "$update_status" == "2" ]]; then
+            die "dynv6 rechazó el token HTTP. Corrige $CONFIG_DIR/dynv6.token y repite el instalador."
+        fi
+        DNS_UPDATE_PENDING=1
+        say "Continuaré la instalación; dynv6 se volverá a intentar automáticamente cada 10 minutos."
+    fi
     cat > /etc/systemd/system/biblioteca-up-dynv6.service <<EOF
 [Unit]
 Description=Actualizar IPv4 de dynv6 para Biblioteca UP
@@ -310,6 +320,9 @@ say "Biblioteca UP está instalada: $PUBLIC_URL"
 say "Administración: $PUBLIC_URL/login"
 if (( USE_DOMAIN )); then
     say "Caddy solicitará y renovará el certificado HTTPS automáticamente. Abre TCP 80 y 443 en el Security Group de AWS."
+    if (( ${DNS_UPDATE_PENDING:-0} )); then
+        say "El DNS aún no se actualizó. HTTPS quedará pendiente hasta que dynv6 responda y el registro A apunte a $PUBLIC_IP."
+    fi
 else
     say "Sin dominio, el acceso es por HTTP. Puedes repetir el instalador más tarde para activar HTTPS con un dominio."
 fi
