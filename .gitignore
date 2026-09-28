@@ -7,5 +7,6 @@ db.sqlite3
 data/
 data-local-test/
 staticfiles/
+.impeccable/review/
 deploy/Caddyfile.runtime
 .DS_Store

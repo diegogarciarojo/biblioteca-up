@@ -3,14 +3,23 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f1e9">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f1e9" data-light-color="#f4f1e9">
   <meta name="description" content="Biblioteca UP: descubre, consulta y descarga libros en PDF.">
   <title>{% block title %}Biblioteca UP{% endblock %}</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <script src="{% static 'js/theme.js' %}"></script>
+  <script src="{% static 'js/intro.js' %}"></script>
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+  <link rel="stylesheet" href="{% static 'css/motion.css' %}">
+  <link rel="stylesheet" href="{% static 'css/liquid.css' %}">
+  <script src="{% static 'js/motion.js' %}" defer></script>
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
+  {% include 'includes/visit-intro.html' %}
+  <a class="skip-link" href="#main-content">Ir al contenido</a>
   <header class="site-header">
     <div class="header-inner container">
       <a class="brand" href="{% url 'home' %}" aria-label="Biblioteca UP, inicio">
@@ -18,13 +27,18 @@
         <span>Biblioteca <strong>UP</strong></span>
       </a>
       <nav class="main-nav" aria-label="Navegación principal">
-        <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>Explorar</a>
-        {% if user.is_staff %}<a href="{% url 'panel' %}" {% if request.resolver_match.url_name == 'panel' %}aria-current="page"{% endif %}>Panel</a>{% endif %}
-        {% if user.is_staff %}
-          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-pill" type="submit">Salir</button></form>
-        {% else %}
-          <a class="nav-pill" href="{% url 'login' %}">Administrar <span aria-hidden="true">↗</span></a>
-        {% endif %}
+        <div class="nav-links">
+          <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'book_detail' %}aria-current="page"{% endif %}>Explorar</a>
+          {% if user.is_staff %}<a href="{% url 'panel' %}" {% if request.resolver_match.url_name == 'panel' %}aria-current="page"{% endif %}>Panel</a>{% endif %}
+        </div>
+        <div class="nav-actions">
+          {% include 'includes/theme-toggle.html' %}
+          {% if user.is_staff %}
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-pill" type="submit">Salir</button></form>
+          {% else %}
+            <a class="nav-pill" href="{% url 'login' %}" aria-label="Administrar" title="Administrar"><span class="nav-pill-label">Administrar</span> <span aria-hidden="true">↗</span></a>
+          {% endif %}
+        </div>
       </nav>
     </div>
   </header>
@@ -33,7 +47,7 @@
       {% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
     </div>
   {% endif %}
-  <main>{% block content %}{% endblock %}</main>
+  <main id="main-content">{% block content %}{% endblock %}</main>
   <footer class="site-footer container"><span>Biblioteca UP</span><span>Un espacio para leer y descubrir.</span></footer>
 </body>
 </html>

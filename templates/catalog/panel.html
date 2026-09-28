@@ -1,22 +1,61 @@
 {% extends 'base.html' %}
-{% block title %}Panel de administrador · Biblioteca UP{% endblock %}
+{% load static %}
+{% block title %}{% if editing_book %}Editar {{ editing_book.title }}{% else %}Panel de administrador{% endif %} · Biblioteca UP{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/panel.css' %}"><link rel="stylesheet" href="{% static 'css/liquid-staff.css' %}"><script src="{% static 'js/panel-dialog.js' %}" defer></script>{% endblock %}
 {% block content %}
-<section class="panel-section container">
-  <div class="section-heading panel-heading"><div><span class="eyebrow">ADMINISTRACIÓN</span><h1>Gestiona tu biblioteca.</h1></div><p>{{ books|length }} libro{{ books|length|pluralize }} publicado{{ books|length|pluralize }}</p></div>
+<section class="panel-section staff-panel container" aria-labelledby="staff-panel-title">
+  <header class="section-heading panel-heading">
+    <div><span class="eyebrow">ADMINISTRACIÓN</span><h1 id="staff-panel-title">Gestiona tu biblioteca.</h1></div>
+    <p>{{ books|length }} libro{{ books|length|pluralize }} publicado{{ books|length|pluralize }}</p>
+  </header>
   <div class="panel-layout">
-    <div class="upload-card"><span class="eyebrow">NUEVO LIBRO</span><h2>Agregar un PDF</h2><p>La portada se creará automáticamente a partir de la primera página.</p>
-      <form method="post" enctype="multipart/form-data" class="stack-form">{% csrf_token %}
+    <section class="upload-card" id="book-form" aria-labelledby="book-form-title">
+      {% if editing_book %}
+        <h2 id="book-form-title">Editar libro</h2>
+        <p>Actualiza los datos de «{{ editing_book.title }}».</p>
+      {% else %}
+        <span class="eyebrow">NUEVO LIBRO</span>
+        <h2 id="book-form-title">Agregar un PDF</h2>
+        <p>La portada se creará automáticamente a partir de la primera página.</p>
+      {% endif %}
+      <form method="post" action="{% if editing_book %}{% url 'edit_book' editing_book.id %}{% else %}{% url 'panel' %}{% endif %}" enctype="multipart/form-data" class="stack-form">{% csrf_token %}
         {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
         <label for="{{ form.title.id_for_label }}">Título <span>*</span></label>{{ form.title }}{% if form.title.errors %}<div class="field-error">{{ form.title.errors }}</div>{% endif %}
         <label for="{{ form.author.id_for_label }}">Autor</label>{{ form.author }}{% if form.author.errors %}<div class="field-error">{{ form.author.errors }}</div>{% endif %}
         <label for="{{ form.description.id_for_label }}">Descripción</label>{{ form.description }}{% if form.description.errors %}<div class="field-error">{{ form.description.errors }}</div>{% endif %}
-        <label for="{{ form.pdf.id_for_label }}">Archivo PDF <span>*</span></label><div class="file-input">{{ form.pdf }}<small>Solo PDF · máximo {{ max_pdf_mb }} MB</small></div>{% if form.pdf.errors %}<div class="field-error">{{ form.pdf.errors }}</div>{% endif %}
-        <button class="button button-dark full-width" type="submit">Publicar libro <span aria-hidden="true">↑</span></button>
+        <label for="{{ form.pdf.id_for_label }}">{% if editing_book %}Reemplazar PDF <span class="optional-label">(opcional)</span>{% else %}Archivo PDF <span>*</span>{% endif %}</label>
+        {% if editing_book %}<p class="current-file" id="current-pdf">PDF actual · {{ editing_book.pages }} pág. · {{ editing_book.size_label }}<br>Deja este campo vacío para conservar el archivo.</p>{% endif %}
+        <div class="file-input">{{ form.pdf }}<small>Solo PDF · máximo {{ max_pdf_mb }} MB</small></div>{% if form.pdf.errors %}<div class="field-error">{{ form.pdf.errors }}</div>{% endif %}
+        {% if editing_book %}
+          <div class="edit-form-actions"><button class="button button-dark" type="submit">Guardar cambios</button><a class="button button-outline" href="{% url 'panel' %}">Cancelar</a></div>
+        {% else %}
+          <button class="button button-dark full-width" type="submit">Publicar libro <span aria-hidden="true">↑</span></button>
+        {% endif %}
       </form>
-    </div>
-    <div class="admin-list"><div class="admin-list-head"><h2>Libros publicados</h2><span>{{ books|length }} en total</span></div>
-      {% for book in books %}<div class="admin-row"><img src="{% url 'cover_file' book.id %}" alt=""><div><a href="{% url 'book_detail' book.id %}">{{ book.title }}</a><span>{{ book.author|default:"Sin autor" }} · {{ book.pages }} pág.</span></div><form method="post" action="{% url 'delete_book' book.id %}" onsubmit="return confirm('¿Eliminar este libro y su PDF de la biblioteca?');">{% csrf_token %}<button type="submit" aria-label="Eliminar {{ book.title }}">Eliminar</button></form></div>{% empty %}<div class="admin-empty">Aún no hay libros. Publica el primero usando el formulario.</div>{% endfor %}
-    </div>
+    </section>
+    <section class="admin-list" aria-labelledby="published-books-title">
+      <div class="admin-list-head"><h2 id="published-books-title">Libros publicados</h2><span>{{ books|length }} en total</span></div>
+      {% for book in books %}
+        <div class="admin-row{% if editing_book.id == book.id %} is-editing{% endif %}">
+          <img src="{% url 'cover_file' book.id %}?v={{ book.pdf_version }}" alt="">
+          <div class="admin-book-info"><a href="{% url 'book_detail' book.id %}">{{ book.title }}</a><span>{{ book.author|default:"Sin autor" }} · {{ book.pages }} pág.</span></div>
+          <div class="admin-row-actions">
+            <a class="admin-edit" href="{% url 'edit_book' book.id %}#book-form" aria-label="Editar {{ book.title }}" {% if editing_book.id == book.id %}aria-current="page"{% endif %}>Editar</a>
+            <form method="post" action="{% url 'delete_book' book.id %}" data-delete-book data-book-title="{{ book.title }}" onsubmit="return confirm('¿Eliminar este libro y su PDF de la biblioteca?');">{% csrf_token %}<button type="submit" aria-label="Eliminar {{ book.title }}">Eliminar</button></form>
+          </div>
+        </div>
+      {% empty %}<div class="admin-empty">Aún no hay libros. Publica el primero usando el formulario.</div>{% endfor %}
+    </section>
   </div>
 </section>
+<dialog id="delete-book-dialog" class="glass-dialog" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-copy">
+  <div class="glass-dialog__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 7 17 17M17 7 7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+  <h2 id="delete-dialog-title">Eliminar libro</h2>
+  <p id="delete-dialog-copy">¿Eliminar este libro y su PDF de la biblioteca?</p>
+  <p id="delete-dialog-book" class="glass-dialog__book"></p>
+  <div class="glass-dialog__actions">
+    <button id="delete-dialog-cancel" class="button button-outline" type="button">Cancelar</button>
+    <button id="delete-dialog-confirm" class="button button-danger" type="button">Eliminar</button>
+  </div>
+</dialog>
 {% endblock %}

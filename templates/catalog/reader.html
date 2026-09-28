@@ -3,38 +3,49 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#18292d">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f1e9" data-light-color="#f4f1e9">
   <title>Leer {{ book.title }} · Biblioteca UP</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <script src="{% static 'js/theme.js' %}"></script>
+  <script src="{% static 'js/intro.js' %}"></script>
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
   <link rel="stylesheet" href="{% static 'css/reader.css' %}">
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+  <link rel="stylesheet" href="{% static 'css/motion.css' %}">
+  <link rel="stylesheet" href="{% static 'css/liquid.css' %}">
+  <link rel="stylesheet" href="{% static 'css/liquid-reader.css' %}">
+  <script src="{% static 'js/motion.js' %}" defer></script>
 </head>
 <body class="reader-body">
+  {% include 'includes/visit-intro.html' %}
   <div id="reader" data-book-id="{{ book.id }}" data-version="{{ pdf_version }}" data-page-url-template="{% url 'pdf_page' book.id 123456789 %}" data-pages="{{ book.pages }}" data-search-url="{% url 'search_book' book.id %}" data-worker-url="{% static 'pdfjs/pdf.worker.mjs' %}" data-cmap-url="/static/pdfjs/cmaps/" data-font-url="/static/pdfjs/standard_fonts/">
     <header class="reader-toolbar">
-      <a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">←</a>
+      <a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
       <div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Biblioteca UP" }}</span></div>
       <div class="reader-controls">
-        <button id="previous-page" class="reader-control" type="button" aria-label="Página anterior">‹</button>
+        <button id="previous-page" class="reader-control" type="button" aria-label="Página anterior"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <label class="sr-only" for="page-input">Número de página</label>
         <input id="page-input" type="number" min="1" value="1" inputmode="numeric">
         <span id="page-total">/ {{ book.pages }}</span>
-        <button id="next-page" class="reader-control" type="button" aria-label="Página siguiente">›</button>
+        <button id="next-page" class="reader-control" type="button" aria-label="Página siguiente"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 6 6 6-6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <span class="reader-separator"></span>
         <label class="sr-only" for="zoom-select">Zoom</label>
         <select id="zoom-select" aria-label="Zoom" title="Ctrl + rueda sobre el PDF"><option value="fit">Ajustar</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
       </div>
-      <button id="find-toggle" class="reader-find-toggle" type="button" aria-label="Buscar en el libro" aria-expanded="false" aria-controls="reader-findbar"><span aria-hidden="true">⌕</span><span class="find-label">Buscar</span></button>
-      <a class="reader-download" href="{% url 'download_book' book.id %}">Descargar <span aria-hidden="true">↓</span></a>
+      <button id="find-toggle" class="reader-find-toggle" type="button" aria-label="Buscar en el libro" aria-expanded="false" aria-controls="reader-findbar"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.4" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.3 4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="find-label">Buscar</span></button>
+      {% include 'includes/theme-toggle.html' with compact=True %}
+      <a class="reader-download" href="{% url 'download_book' book.id %}?v={{ pdf_version }}&amp;title={{ book.title|urlencode }}"><span class="reader-download-label">Descargar</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4.5 16.5v2.2A1.8 1.8 0 0 0 6.3 20.5h11.4a1.8 1.8 0 0 0 1.8-1.8v-2.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </header>
     <div id="reader-findbar" class="reader-findbar" hidden role="search" aria-label="Buscar dentro del libro">
       <label class="sr-only" for="find-input">Palabra o frase</label>
       <input id="find-input" type="search" placeholder="Buscar palabra o frase" autocomplete="off" spellcheck="false">
       <span id="find-count" class="find-count" role="status" aria-live="polite"></span>
-      <button id="find-previous" type="button" aria-label="Resultado anterior" disabled>↑</button>
-      <button id="find-next" type="button" aria-label="Resultado siguiente" disabled>↓</button>
-      <button id="find-close" type="button" aria-label="Cerrar búsqueda">×</button>
+      <button id="find-previous" type="button" aria-label="Resultado anterior" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 14 6-6 6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="find-next" type="button" aria-label="Resultado siguiente" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 10 6 6 6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="find-close" type="button" aria-label="Cerrar búsqueda"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></button>
     </div>
     <div id="reader-status" class="reader-status" role="status">Preparando el libro…</div>
     <main id="pdf-pages" class="pdf-pages" aria-label="Páginas de {{ book.title }}"></main>

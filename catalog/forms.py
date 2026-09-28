@@ -47,3 +47,16 @@ class BookUploadForm(forms.ModelForm):
         finally:
             uploaded.seek(0)
         return uploaded
+
+
+class BookEditForm(BookUploadForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["pdf"].required = False
+        self.fields["pdf"].widget = forms.FileInput(attrs={"accept": ".pdf,application/pdf"})
+        self.fields["pdf"].widget.attrs["aria-describedby"] = "current-pdf"
+
+    def clean_pdf(self):
+        if "pdf" not in self.files:
+            return self.instance.pdf
+        return super().clean_pdf()

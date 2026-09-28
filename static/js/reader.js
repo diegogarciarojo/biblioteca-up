@@ -530,7 +530,7 @@ function goToMatch(index) {
   scrollToPage(number);
   if (rendered.has(number)) {
     paintMatches(number);
-    document.getElementById(`page-${number}`).querySelector('.search-hit.is-current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.getElementById(`page-${number}`).querySelector('.search-hit.is-current')?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }
 }
 

@@ -10,13 +10,14 @@ from django.conf import settings
 from django.core.cache import caches
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import content_disposition_header
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from .forms import BookUploadForm
+from .forms import BookEditForm, BookUploadForm
 from .models import Book
 from .search import find_in_book, index_book
 
@@ -36,12 +37,11 @@ def book_detail(request, book_id):
 
 def read_book(request, book_id):
     book = get_object_or_404(Book, pk=book_id)
-    try:
-        stat = Path(book.pdf.path).stat()
-    except (FileNotFoundError, ValueError):
+    pdf_version = book.pdf_version
+    if not pdf_version:
         raise Http404("PDF no disponible")
     return render(request, "catalog/reader.html", {
-        "book": book, "pdf_version": f"{stat.st_size}-{stat.st_mtime_ns}",
+        "book": book, "pdf_version": pdf_version,
     })
 
 
@@ -94,6 +94,47 @@ def panel(request):
         messages.success(request, f"«{book.title}» ya está disponible en la biblioteca.")
         return redirect("panel")
     return render(request, "catalog/panel.html", {"form": form, "books": Book.objects.all(), "max_pdf_mb": settings.MAX_PDF_MB})
+
+
+@staff_required
+@require_http_methods(["GET", "POST"])
+def edit_book(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    old_pdf_name, old_cover_name = book.pdf.name, book.cover.name
+    form = BookEditForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        instance=book,
+    )
+    if request.method == "POST" and form.is_valid():
+        book = form.save(commit=False)
+        if "pdf" in request.FILES:
+            new_files = []
+            try:
+                with transaction.atomic():
+                    book.pdf.save(f"{book.id}.pdf", form.cleaned_data["pdf"], save=False)
+                    new_files.append((book.pdf.storage, book.pdf.name))
+                    book.cover.save(f"{book.id}.jpg", ContentFile(form.cover_bytes), save=False)
+                    new_files.append((book.cover.storage, book.cover.name))
+                    book.pages = form.page_count
+                    book.file_size = form.cleaned_data["pdf"].size
+                    book.save()
+                    book.indexed_pages.all().delete()
+                    transaction.on_commit(lambda: book.pdf.storage.delete(old_pdf_name), robust=True)
+                    transaction.on_commit(lambda: book.cover.storage.delete(old_cover_name), robust=True)
+            except Exception:
+                # Failed saves leave the original files and record intact.
+                for storage, name in new_files:
+                    storage.delete(name)
+                raise
+        else:
+            book.save(update_fields=["title", "author", "description"])
+        messages.success(request, f"Se guardaron los cambios de «{book.title}».")
+        return redirect("panel")
+    return render(request, "catalog/panel.html", {
+        "form": form, "books": Book.objects.all(), "editing_book": book,
+        "max_pdf_mb": settings.MAX_PDF_MB,
+    })
 
 
 @staff_required

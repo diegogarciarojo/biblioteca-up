@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 from django.db import models
 
@@ -27,6 +28,14 @@ class Book(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def pdf_version(self):
+        try:
+            stat = Path(self.pdf.path).stat()
+        except (OSError, ValueError):
+            return ""
+        return f"{stat.st_size}-{stat.st_mtime_ns}"
 
     @property
     def size_mb(self):

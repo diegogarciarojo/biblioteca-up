@@ -1,14 +1,27 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Acceso de administrador · Biblioteca UP{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/liquid-staff.css' %}">{% endblock %}
 {% block content %}
-<section class="auth-section container"><div class="auth-card">
-  <span class="eyebrow">ÁREA PRIVADA</span><h1>Bienvenido<br><em>de nuevo.</em></h1><p>Ingresa con tu cuenta de administrador para gestionar los libros.</p>
-  <form method="post" action="{% url 'login' %}" class="stack-form">{% csrf_token %}
-    {% if form.non_field_errors %}<div class="form-error" role="alert">Usuario o contraseña incorrectos, o sin permiso de administrador.</div>{% endif %}
-    <label for="id_username">Usuario</label><input id="id_username" name="username" type="text" autocomplete="username" autofocus required value="{{ form.username.value|default_if_none:'' }}">
-    <label for="id_password">Contraseña</label><input id="id_password" name="password" type="password" autocomplete="current-password" required>
-    <button class="button button-dark full-width" type="submit">Entrar al panel <span aria-hidden="true">→</span></button>
-  </form>
-  <a class="back-link" href="{% url 'home' %}">← Volver a la biblioteca</a>
-</div><div class="auth-side" aria-hidden="true"><span>“Un libro es una puerta<br>a otro lugar.”</span><div class="auth-book"><i>✳</i></div></div></section>
+<section class="auth-section staff-login container" aria-labelledby="staff-login-title">
+  <div class="auth-card">
+    <span class="auth-access-label">ÁREA PRIVADA</span>
+    <h1 id="staff-login-title">Bienvenido<br><em>de nuevo.</em></h1>
+    <p>Ingresa con tu cuenta de administrador para gestionar los libros.</p>
+    <form method="post" action="{% url 'login' %}" class="stack-form">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-error" role="alert">Usuario o contraseña incorrectos, o sin permiso de administrador.</div>{% endif %}
+      <label for="id_username">Usuario</label>
+      <input id="id_username" name="username" type="text" autocomplete="username" autofocus required value="{{ form.username.value|default_if_none:'' }}">
+      <label for="id_password">Contraseña</label>
+      <input id="id_password" name="password" type="password" autocomplete="current-password" required>
+      <button class="button button-dark full-width" type="submit">Entrar al panel <span aria-hidden="true">→</span></button>
+    </form>
+    <a class="back-link" href="{% url 'home' %}">← Volver a la biblioteca</a>
+  </div>
+  <div class="auth-side" aria-hidden="true">
+    <span class="auth-side-brand">Biblioteca UP</span>
+    <span class="auth-side-quote">“Un libro es una puerta<br>a otro lugar.”</span>
+    <span class="auth-side-mark">UP</span>
+  </div>
+</section>
 {% endblock %}
