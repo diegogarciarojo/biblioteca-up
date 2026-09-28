@@ -1,0 +1,160 @@
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* A cover can be inspected without moving the surrounding catalogue. */
+.book-card .cover-frame img,
+.book-card:hover .cover-frame img {
+  transform: none;
+  transition: none;
+}
+
+.book-card:hover .cover-frame::after,
+.book-card:hover .cover-hover {
+  opacity: 0;
+}
+
+.cover-frame::after,
+.cover-hover {
+  transition: none;
+}
+
+.book-card:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 7px;
+  border-radius: 7px;
+}
+
+.book-card:focus-visible .cover-frame::after,
+.book-card:focus-visible .cover-hover {
+  opacity: 1;
+  transition: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html:not([data-motion-input="keyboard"]) .cover-frame img {
+    transition: transform 350ms cubic-bezier(.2, .8, .2, 1);
+  }
+
+  html:not([data-motion-input="keyboard"]) .cover-frame::after,
+  html:not([data-motion-input="keyboard"]) .cover-hover {
+    transition: opacity 220ms ease;
+  }
+
+  html:not([data-motion-input="keyboard"]) .book-card:hover .cover-frame img {
+    transform: translateY(-5px) rotate(-1deg);
+  }
+
+  html:not([data-motion-input="keyboard"]) .book-card:hover .cover-frame::after,
+  html:not([data-motion-input="keyboard"]) .book-card:hover .cover-hover {
+    opacity: 1;
+  }
+}
+
+/* Pointer presses have pressure; keyboard activation remains immediate. */
+:is(.button, .search-box button, .nav-pill, .theme-toggle, .reader-control,
+  .reader-back, .reader-find-toggle, .reader-download, .reader-findbar button,
+  .reader-preload button) {
+  transition: none;
+}
+
+.button:active,
+.search-box button:active,
+.nav-pill:active {
+  transform: none;
+}
+
+html[data-motion-input="pointer"] :is(.button, .search-box button, .nav-pill,
+  .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+  .reader-download, .reader-findbar button, .reader-preload button) {
+  transition: transform 120ms var(--ease-out);
+}
+
+html[data-motion-input="pointer"] :is(.button, .search-box button, .nav-pill,
+  .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+  .reader-download, .reader-findbar button, .reader-preload button):active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+html[data-motion-input="keyboard"] :is(.button, .search-box button, .nav-pill,
+  .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+  .reader-download, .reader-findbar button, .reader-preload button),
+:is(.button, .search-box button, .nav-pill, .theme-toggle, .reader-control,
+  .reader-back, .reader-find-toggle, .reader-download, .reader-findbar button,
+  .reader-preload button):focus-visible {
+  transition: none;
+  transform: none;
+}
+
+/* The book settles into the library's existing illustrated composition once. */
+.admin-edit { transition: none; }
+html[data-motion-input="pointer"] .admin-edit { transition: transform 120ms var(--ease-out); }
+html[data-motion-input="pointer"] .admin-edit:active { transform: scale(.98); }
+
+.hero-art.motion-art-settle .front-book {
+  animation: book-settle 420ms var(--ease-out);
+}
+
+@keyframes book-settle {
+  from { transform: translateY(-6px) rotate(16deg); }
+  to { transform: translateY(0) rotate(12deg); }
+}
+
+/* Opening search from its toolbar anchor is brief, and never delays typing. */
+.reader-findbar {
+  transform-origin: top right;
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+html[data-motion-input="pointer"] .reader-findbar:not([hidden]) {
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+@starting-style {
+  html[data-motion-input="pointer"] .reader-findbar:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion-input="pointer"] .admin-edit:active { transform: none; }
+  .hero-art.motion-art-settle .front-book {
+    animation: none;
+  }
+
+  html:not([data-motion-input="keyboard"]) .book-card:hover .cover-frame img,
+  html[data-motion-input="pointer"] :is(.button, .search-box button, .nav-pill,
+    .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+    .reader-download, .reader-findbar button, .reader-preload button):active:not(:disabled) {
+    transform: none;
+  }
+
+  html[data-motion-input="pointer"] :is(.button, .search-box button, .nav-pill,
+    .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+    .reader-download, .reader-findbar button, .reader-preload button) {
+    transition: opacity 100ms var(--ease-out);
+    transition-duration: 100ms !important;
+  }
+
+  html[data-motion-input="pointer"] :is(.button, .search-box button, .nav-pill,
+    .theme-toggle, .reader-control, .reader-back, .reader-find-toggle,
+    .reader-download, .reader-findbar button, .reader-preload button):active:not(:disabled) {
+    opacity: 0.8;
+  }
+
+  html:not([data-motion-input="keyboard"]) .cover-frame::after,
+  html:not([data-motion-input="keyboard"]) .cover-hover,
+  html[data-motion-input="pointer"] .reader-findbar:not([hidden]) {
+    transition: opacity 100ms var(--ease-out);
+    transition-duration: 100ms !important;
+  }
+
+  @starting-style {
+    html[data-motion-input="pointer"] .reader-findbar:not([hidden]) {
+      transform: none;
+    }
+  }
+}

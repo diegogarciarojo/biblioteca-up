@@ -1,0 +1,22 @@
+.admin-row .admin-book-info { flex: 1; min-width: 0; }
+.admin-row .admin-row-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.admin-row-actions form { margin: 0; }
+.admin-row-actions .admin-edit,
+.admin-row-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 10px; font-size: .76rem; font-weight: 700; }
+.admin-row-actions .admin-edit { color: var(--teal); border: 1px solid var(--line); border-radius: 7px; }
+.admin-row-actions .admin-edit[aria-current="page"] { background: var(--paper-deep); }
+.current-file { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.7; }
+.stack-form label .optional-label { color: var(--muted); font-weight: 400; }
+.edit-form-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.edit-form-actions .button { margin-top: 0; }
+#book-form { scroll-margin-top: 24px; min-width: 0; }
+.panel-layout, .admin-list { min-width: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .admin-edit:hover { background: var(--paper-deep); }
+}
+@media (max-width: 470px) {
+  .admin-row { flex-wrap: wrap; gap: 10px 14px; }
+  .admin-row .admin-book-info { flex-basis: calc(100% - 66px); }
+  .admin-row .admin-row-actions { margin-left: 66px; }
+  .edit-form-actions .button { flex: 1; gap: 0; padding-inline: 12px; }
+}
