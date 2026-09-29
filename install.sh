@@ -311,6 +311,8 @@ if (( ! ready )); then
 fi
 
 docker run -d --name "$WORKER_NAME" --label "$MANAGED_LABEL" \
+    --init --shm-size=512m \
+    --security-opt "seccomp=$INSTALL_DIR/deploy/chromium-seccomp.json" \
     --restart unless-stopped --network "$NETWORK_NAME" \
     --env-file "$ENV_FILE" -e BIBLIOTECA_DATA_DIR=/data \
     -v "$VOLUME_DATA:/data" biblioteca-up:local \
