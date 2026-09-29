@@ -61,7 +61,7 @@ valid_email() {
     [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]
 }
 
-say "Instalación de Biblioteca UP"
+say "Instalación de Bibliotecario"
 USE_DOMAIN=0
 DOMAIN=""
 CONFIGURE_DYNV6=0
@@ -175,7 +175,7 @@ if (( USE_DOMAIN )); then
     fi
 fi
 
-say "Descargando Biblioteca UP..."
+say "Descargando Bibliotecario..."
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     git -C "$INSTALL_DIR" pull --ff-only
 elif [[ -e "$INSTALL_DIR" ]]; then
@@ -201,7 +201,7 @@ if (( USE_DOMAIN && CONFIGURE_DYNV6 )); then
     fi
     cat > /etc/systemd/system/biblioteca-up-dynv6.service <<EOF
 [Unit]
-Description=Actualizar IPv4 de dynv6 para Biblioteca UP
+Description=Actualizar IPv4 de dynv6 para Bibliotecario
 Wants=network-online.target
 After=network-online.target
 
@@ -291,7 +291,7 @@ for container in "$CADDY_NAME" "$WORKER_NAME" "$APP_NAME"; do
     fi
 done
 
-say "Iniciando Biblioteca UP..."
+say "Iniciando Bibliotecario..."
 docker run -d --name "$APP_NAME" --label "$MANAGED_LABEL" \
     --restart unless-stopped --network "$NETWORK_NAME" \
     --env-file "$ENV_FILE" -e BIBLIOTECA_DATA_DIR=/data \
@@ -402,7 +402,7 @@ if (( USE_DOMAIN && DNS_ALREADY_POINTS )); then
     say "HTTPS verificado con un certificado válido."
 fi
 
-say "Biblioteca UP está instalada: $PUBLIC_URL"
+say "Bibliotecario está instalado: $PUBLIC_URL"
 say "Administración: $PUBLIC_URL/login"
 if (( USE_DOMAIN )); then
     say "Caddy solicitará y renovará el certificado HTTPS automáticamente. Abre TCP 80 y 443 en el Security Group de AWS."

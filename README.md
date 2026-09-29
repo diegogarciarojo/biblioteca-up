@@ -1,4 +1,4 @@
-# Biblioteca UP
+# Bibliotecario
 
 Catálogo público de libros PDF: búsqueda, portada generada desde la primera página, lectura con PDF.js y descarga del archivo original. El administrador entra por `/login` para subir y eliminar libros. Los PDFs, portadas y la base de datos se guardan en un volumen de la VPS, no en GitHub.
 
@@ -24,11 +24,11 @@ Para actualizar, ejecuta **la misma línea**. El instalador conserva la clave de
 
 ## Solicitar libro
 
-El botón de la portada lleva al flujo de solicitud. El estudiante accede a Inventio con su cuenta institucional, abre el visor Ebooks7-24 y pega su enlace `visorBook.aspx` en Biblioteca UP. Un trabajador de la VPS reconstruye y verifica el PDF completo antes de publicarlo en el catálogo. La pantalla de espera muestra el progreso y abre la ficha del libro al terminar.
+El botón de la portada lleva al flujo de solicitud. El estudiante accede a Inventio con su cuenta institucional, abre el visor Ebooks7-24 y pega su enlace `visorBook.aspx` en Bibliotecario. Un trabajador de la VPS reconstruye y verifica el PDF completo antes de publicarlo en el catálogo. La pantalla de espera muestra el progreso y abre la ficha del libro al terminar.
 
-Para activar el acceso estudiantil a Biblioteca UP se necesita un cliente OAuth de Google con el URI de retorno `https://biblioteca.dns.army/solicitar/acceso/callback/`. Configura `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` en `/opt/biblioteca-up/.env`; el instalador los conserva al actualizar. `EBOOKS724_ALLOWED_HOSTS` limita los destinos admitidos para el visor, inicialmente `ebooks724.up.elogim.com,ebooks7-24.com,www.ebooks7-24.com`.
+Para activar el acceso estudiantil a Bibliotecario se necesita un cliente OAuth de Google con el URI de retorno `https://biblioteca.dns.army/solicitar/acceso/callback/`. Configura `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` en `/opt/biblioteca-up/.env`; el instalador los conserva al actualizar. `EBOOKS724_ALLOWED_HOSTS` limita los destinos admitidos para el visor, inicialmente `ebooks724.up.elogim.com,ebooks7-24.com,www.ebooks7-24.com`.
 
-El acceso de Google a Biblioteca UP no comparte por sí mismo la sesión de Inventio. Los navegadores impiden que una página lea la URL o las cookies de una pestaña de otro dominio; por ello el enlace del visor se pega manualmente. La descarga de la VPS depende de que el token del enlace permita abrir el visor sin cookies adicionales. No se almacenan contraseñas institucionales ni archivos de cookies en base64.
+El acceso de Google a Bibliotecario no comparte por sí mismo la sesión de Inventio. Los navegadores impiden que una página lea la URL o las cookies de una pestaña de otro dominio; por ello el enlace del visor se pega manualmente. La descarga de la VPS depende de que el token del enlace permita abrir el visor sin cookies adicionales. No se almacenan contraseñas institucionales ni archivos de cookies en base64.
 
 Para consultar los contenedores y sus registros:
 

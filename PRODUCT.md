@@ -1,4 +1,4 @@
-# Biblioteca UP
+# Bibliotecario
 
 <!-- impeccable:product-schema 1 -->
 
@@ -30,7 +30,7 @@ The public site includes a searchable, paginated catalogue, book detail pages, a
 
 ## Brand Commitments
 
-- Keep the name Biblioteca UP.
+- Use Bibliotecario as the public name.
 - The requested replacement visual language combines restrained glassmorphism and neumorphic depth with an Apple Liquid Glass influence.
 
 ## Evidence on Hand

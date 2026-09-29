@@ -1,4 +1,4 @@
-# Biblioteca UP visual system
+# Bibliotecario visual system
 
 ## Direction
 
@@ -19,7 +19,7 @@ The existing self-hosted DM Sans family carries headings, body text, and control
 
 ## Interaction
 
-The first visit reveals the Biblioteca UP mark through a glass lens, then fades to the site. `localStorage` records the visit at the start, so reloads and later pages skip it. Reduced-motion users see the site immediately. Hover and press feedback is small and limited to appropriate input types; page scrolling and PDF gestures are never animated by the shell.
+The first visit reveals the Bibliotecario mark through a glass lens, then fades to the site. `localStorage` records the visit at the start, so reloads and later pages skip it. Reduced-motion users see the site immediately. Hover and press feedback is small and limited to appropriate input types; page scrolling and PDF gestures are never animated by the shell.
 
 ## Adaptation
 

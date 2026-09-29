@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Preparando libro · Biblioteca UP{% endblock %}
+{% block title %}Preparando libro · Bibliotecario{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/request.css' %}"><script src="{% static 'js/request.js' %}" defer></script>{% endblock %}
 {% block content %}
 <section id="request-wait" class="request-wait container" data-status-url="{{ status_url }}" data-login-url="{% url 'student_login' %}" aria-labelledby="request-wait-title">

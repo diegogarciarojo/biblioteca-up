@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Acceso de administrador · Biblioteca UP{% endblock %}
+{% block title %}Acceso de administrador · Bibliotecario{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/liquid-staff.css' %}">{% endblock %}
 {% block content %}
 <section class="auth-section staff-login container" aria-labelledby="staff-login-title">
@@ -19,9 +19,9 @@
     <a class="back-link" href="{% url 'home' %}">← Volver a la biblioteca</a>
   </div>
   <div class="auth-side" aria-hidden="true">
-    <span class="auth-side-brand">Biblioteca UP</span>
+    <span class="auth-side-brand">Bibliotecario</span>
     <span class="auth-side-quote">“Un libro es una puerta<br>a otro lugar.”</span>
-    <span class="auth-side-mark">UP</span>
+    <span class="auth-side-mark">B</span>
   </div>
 </section>
 {% endblock %}

@@ -88,7 +88,7 @@
     try {
       const response = await fetch(wait.dataset.statusUrl, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
       if (response.status === 403) {
-        stop('error', 'Tu sesión de Biblioteca UP terminó. Inicia sesión de nuevo para consultar esta solicitud.', true);
+        stop('error', 'Tu sesión de Bibliotecario terminó. Inicia sesión de nuevo para consultar esta solicitud.', true);
         return;
       }
       if (response.status === 404) {

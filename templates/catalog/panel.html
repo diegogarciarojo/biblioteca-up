@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}{% if editing_book %}Editar {{ editing_book.title }}{% else %}Panel de administrador{% endif %} · Biblioteca UP{% endblock %}
+{% block title %}{% if editing_book %}Editar {{ editing_book.title }}{% else %}Panel de administrador{% endif %} · Bibliotecario{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/panel.css' %}"><link rel="stylesheet" href="{% static 'css/liquid-staff.css' %}"><script src="{% static 'js/panel-dialog.js' %}" defer></script>{% endblock %}
 {% block content %}
 <section class="panel-section staff-panel container" aria-labelledby="staff-panel-title">

@@ -1,4 +1,4 @@
-"""Student book requests and Google sign-in for Biblioteca UP."""
+"""Student book requests and Google sign-in for Bibliotecario."""
 
 import re
 from datetime import timedelta
@@ -184,7 +184,7 @@ def student_callback(request):
         or not email.endswith(f"@{GOOGLE_DOMAIN}")
         or not re.fullmatch(r"[A-Za-z0-9_-]{1,120}", sub)
     ):
-        return _render_request_page(request, form_error="Utiliza una cuenta institucional verificada de la UP.", status=403)
+        return _render_request_page(request, form_error="Utiliza una cuenta institucional verificada.", status=403)
 
     username = f"google_{sub}"
     user, created = get_user_model().objects.get_or_create(

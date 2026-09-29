@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f1e9" data-light-color="#f4f1e9">
-  <title>Leer {{ book.title }} · Biblioteca UP</title>
+  <title>Leer {{ book.title }} · Bibliotecario</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <script src="{% static 'js/theme.js' %}"></script>
   <script src="{% static 'js/intro.js' %}"></script>
@@ -24,7 +24,7 @@
       <a class="reader-back" href="{% url 'book_detail' book.id %}" aria-label="Volver al libro">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-      <div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Biblioteca UP" }}</span></div>
+      <div class="reader-title"><strong>{{ book.title }}</strong><span>{{ book.author|default:"Autor no especificado" }}</span></div>
       <div class="reader-controls">
         <button id="previous-page" class="reader-control" type="button" aria-label="Página anterior"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <label class="sr-only" for="page-input">Número de página</label>

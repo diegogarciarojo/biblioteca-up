@@ -28,7 +28,7 @@
       intro.id = 'visit-intro';
       intro.className = 'visit-intro';
       intro.setAttribute('aria-hidden', 'true');
-      intro.innerHTML = '<div class="visit-intro__halo"></div><div class="visit-intro__lens"><span class="visit-intro__mark brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span class="visit-intro__name">Biblioteca <strong>UP</strong></span><span class="visit-intro__line"></span></div>';
+      intro.innerHTML = '<div class="visit-intro__halo"></div><div class="visit-intro__lens"><span class="visit-intro__mark brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span class="visit-intro__name">Bibliotecario</span><span class="visit-intro__line"></span></div>';
       document.body.prepend(intro);
     }
 

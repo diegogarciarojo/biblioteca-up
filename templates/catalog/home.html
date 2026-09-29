@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Explorar libros · Biblioteca UP{% endblock %}
+{% block title %}Explorar libros · Bibliotecario{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/request.css' %}">{% endblock %}
 {% block content %}
 <section class="hero container">
@@ -16,14 +16,14 @@
     </form>
     <div class="hero-request">
       <a class="button button-outline request-cta" href="{% url 'request_book' %}">Solicitar libro <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
-      <span>¿No lo encuentras aquí? Búscalo en los recursos en línea de la UP.</span>
+      <span>¿No lo encuentras aquí? Búscalo en los recursos en línea.</span>
     </div>
     <div class="hero-foot"><span class="round-sparkle" aria-hidden="true">{% include 'includes/sparkle.html' %}</span><span><strong>{{ total_books }}</strong> libro{{ total_books|pluralize }} disponible{{ total_books|pluralize }}</span></div>
   </div>
   <div class="hero-art" aria-hidden="true">
     <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
     <div class="book-art back-book"><span>LECTURAS</span><b>Explora<br>sin límites</b><i>∞</i></div>
-    <div class="book-art front-book"><span> BIBLIOTECA · UP </span><b>El siguiente<br>capítulo<br>empieza aquí.</b><i>{% include 'includes/sparkle.html' %}</i></div>
+    <div class="book-art front-book"><span> BIBLIOTECARIO </span><b>El siguiente<br>capítulo<br>empieza aquí.</b><i>{% include 'includes/sparkle.html' %}</i></div>
     <div class="art-badge"><span aria-hidden="true">{% include 'includes/sparkle.html' %}</span> Abre un libro.<br>Abre un mundo.</div>
   </div>
 </section>
