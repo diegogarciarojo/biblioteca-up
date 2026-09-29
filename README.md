@@ -20,22 +20,31 @@ Al terminar, abre `https://biblioteca.dns.army` y `https://biblioteca.dns.army/l
 
 ## Actualizaciones y datos
 
-Para actualizar, ejecuta **la misma línea**. El instalador conserva la clave de Django, la base de datos, los PDFs, las portadas, el token dynv6 y los certificados. Si ya existe un superusuario, no vuelve a pedir credenciales. La aplicación y Caddy se reinician automáticamente tras reiniciar la VPS.
+Para actualizar, ejecuta **la misma línea**. El instalador conserva la clave de Django, la configuración OAuth, la base de datos, los PDFs, las portadas, el token dynv6 y los certificados. Si ya existe un superusuario, no vuelve a pedir credenciales. La aplicación, el trabajador de solicitudes y Caddy se reinician automáticamente tras reiniciar la VPS.
+
+## Solicitar libro
+
+El botón de la portada lleva al flujo de solicitud. El estudiante accede a Inventio con su cuenta institucional, abre el visor Ebooks7-24 y pega su enlace `visorBook.aspx` en Biblioteca UP. Un trabajador de la VPS reconstruye y verifica el PDF completo antes de publicarlo en el catálogo. La pantalla de espera muestra el progreso y abre la ficha del libro al terminar.
+
+Para activar el acceso estudiantil a Biblioteca UP se necesita un cliente OAuth de Google con el URI de retorno `https://biblioteca.dns.army/solicitar/acceso/callback/`. Configura `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` en `/opt/biblioteca-up/.env`; el instalador los conserva al actualizar. `EBOOKS724_ALLOWED_HOSTS` limita los destinos admitidos para el visor, inicialmente `ebooks724.up.elogim.com,ebooks7-24.com,www.ebooks7-24.com`.
+
+El acceso de Google a Biblioteca UP no comparte por sí mismo la sesión de Inventio. Los navegadores impiden que una página lea la URL o las cookies de una pestaña de otro dominio; por ello el enlace del visor se pega manualmente. La descarga de la VPS depende de que el token del enlace permita abrir el visor sin cookies adicionales. No se almacenan contraseñas institucionales ni archivos de cookies en base64.
 
 Para consultar los contenedores y sus registros:
 
 ```bash
 sudo docker ps --filter label=org.biblioteca-up.managed=true
 sudo docker logs --tail 80 biblioteca-up-app
+sudo docker logs --tail 80 biblioteca-up-worker
 sudo docker logs --tail 80 biblioteca-up-caddy
 ```
 
 Respalda periódicamente el volumen `biblioteca-up_library_data` y `/opt/biblioteca-up/.env`. Si configuraste dynv6, respalda también `/etc/biblioteca-up/dynv6.token`. Un clon del repositorio no contiene los libros subidos.
 
 ```bash
-sudo docker stop biblioteca-up-app
+sudo docker stop biblioteca-up-app biblioteca-up-worker
 sudo docker run --rm -v biblioteca-up_library_data:/source:ro -v "$PWD:/backup" alpine tar czf /backup/biblioteca-datos.tar.gz -C /source .
-sudo docker start biblioteca-up-app
+sudo docker start biblioteca-up-app biblioteca-up-worker
 ```
 
 ## Desarrollo local

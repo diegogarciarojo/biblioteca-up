@@ -6,6 +6,7 @@ REPO_URL="https://github.com/diegogarciarojo/biblioteca-up.git"
 INSTALL_DIR="/opt/biblioteca-up"
 CONFIG_DIR="/etc/biblioteca-up"
 APP_NAME="biblioteca-up-app"
+WORKER_NAME="biblioteca-up-worker"
 CADDY_NAME="biblioteca-up-caddy"
 NETWORK_NAME="biblioteca-up-net"
 VOLUME_DATA="biblioteca-up_library_data"
@@ -230,9 +231,16 @@ fi
 ENV_FILE="$INSTALL_DIR/.env"
 SECRET=""
 MAX_PDF_MB=1024
+GOOGLE_OAUTH_CLIENT_ID=""
+GOOGLE_OAUTH_CLIENT_SECRET=""
+EBOOKS724_ALLOWED_HOSTS="ebooks724.up.elogim.com,ebooks7-24.com,www.ebooks7-24.com"
 if [[ -f "$ENV_FILE" ]]; then
     SECRET="$(sed -n 's/^DJANGO_SECRET_KEY=//p' "$ENV_FILE" | head -n 1)"
     old_limit="$(sed -n 's/^MAX_PDF_MB=//p' "$ENV_FILE" | head -n 1)"
+    GOOGLE_OAUTH_CLIENT_ID="$(sed -n 's/^GOOGLE_OAUTH_CLIENT_ID=//p' "$ENV_FILE" | head -n 1)"
+    GOOGLE_OAUTH_CLIENT_SECRET="$(sed -n 's/^GOOGLE_OAUTH_CLIENT_SECRET=//p' "$ENV_FILE" | head -n 1)"
+    old_ebook_hosts="$(sed -n 's/^EBOOKS724_ALLOWED_HOSTS=//p' "$ENV_FILE" | head -n 1)"
+    [[ -n "$old_ebook_hosts" ]] && EBOOKS724_ALLOWED_HOSTS="$old_ebook_hosts"
     [[ "$old_limit" =~ ^[1-9][0-9]*$ ]] && MAX_PDF_MB="$old_limit"
 fi
 SECRET="${SECRET:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(64))')}"
@@ -257,6 +265,9 @@ DJANGO_USE_HTTPS=$HTTPS
 DJANGO_ALLOWED_HOSTS=$HOSTS
 DJANGO_CSRF_TRUSTED_ORIGINS=$ORIGINS
 MAX_PDF_MB=$MAX_PDF_MB
+GOOGLE_OAUTH_CLIENT_ID=$GOOGLE_OAUTH_CLIENT_ID
+GOOGLE_OAUTH_CLIENT_SECRET=$GOOGLE_OAUTH_CLIENT_SECRET
+EBOOKS724_ALLOWED_HOSTS=$EBOOKS724_ALLOWED_HOSTS
 EOF
 mv -f "$ENV_FILE.tmp" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
@@ -274,7 +285,7 @@ for volume in "$VOLUME_DATA" "$VOLUME_CADDY_DATA" "$VOLUME_CADDY_CONFIG"; do
     docker volume create "$volume" >/dev/null
 done
 
-for container in "$CADDY_NAME" "$APP_NAME"; do
+for container in "$CADDY_NAME" "$WORKER_NAME" "$APP_NAME"; do
     if docker container inspect "$container" >/dev/null 2>&1; then
         docker rm -f "$container" >/dev/null
     fi
@@ -297,6 +308,17 @@ done
 if (( ! ready )); then
     docker logs --tail 80 "$APP_NAME" >&2
     die "La aplicación no respondió a tiempo."
+fi
+
+docker run -d --name "$WORKER_NAME" --label "$MANAGED_LABEL" \
+    --restart unless-stopped --network "$NETWORK_NAME" \
+    --env-file "$ENV_FILE" -e BIBLIOTECA_DATA_DIR=/data \
+    -v "$VOLUME_DATA:/data" biblioteca-up:local \
+    python manage.py process_book_requests >/dev/null
+sleep 2
+if [[ "$(docker inspect -f '{{.State.Running}}' "$WORKER_NAME")" != "true" ]]; then
+    docker logs --tail 80 "$WORKER_NAME" >&2
+    die "El trabajador de solicitudes no pudo iniciar."
 fi
 
 if ! docker exec "$APP_NAME" python manage.py shell -c \

@@ -33,7 +33,7 @@
         </div>
         <div class="nav-actions">
           {% include 'includes/theme-toggle.html' %}
-          {% if user.is_staff %}
+          {% if user.is_authenticated %}
             <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-pill" type="submit">Salir</button></form>
           {% else %}
             <a class="nav-pill" href="{% url 'login' %}" aria-label="Administrar" title="Administrar"><span class="nav-pill-label">Administrar</span> <span aria-hidden="true">↗</span></a>
@@ -48,6 +48,6 @@
     </div>
   {% endif %}
   <main id="main-content">{% block content %}{% endblock %}</main>
-  <footer class="site-footer container"><span>Biblioteca UP</span><span>Un espacio para leer y descubrir.</span></footer>
+  <footer class="site-footer container"><span>Biblioteca UP</span><a href="{% url 'privacy' %}">Privacidad</a><span>Un espacio para leer y descubrir.</span></footer>
 </body>
 </html>

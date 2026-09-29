@@ -94,6 +94,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/login"
 
 MAX_PDF_MB = int(os.getenv("MAX_PDF_MB", "1024"))
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+EBOOKS724_ALLOWED_HOSTS = tuple(
+    host.strip().lower()
+    for host in os.getenv(
+        "EBOOKS724_ALLOWED_HOSTS",
+        "ebooks7-24.com,www.ebooks7-24.com,ebooks724.up.elogim.com",
+    ).split(",")
+    if host.strip()
+)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 3 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o600

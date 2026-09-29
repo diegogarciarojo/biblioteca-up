@@ -14,6 +14,23 @@ services:
       retries: 3
       start_period: 40s
 
+  worker:
+    build: .
+    restart: unless-stopped
+    init: true
+    shm_size: "512mb"
+    security_opt:
+      - seccomp=./deploy/chromium-seccomp.json
+    env_file: .env
+    environment:
+      BIBLIOTECA_DATA_DIR: /data
+    volumes:
+      - library_data:/data
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["python", "manage.py", "process_book_requests"]
+
   caddy:
     image: caddy:2.11.4-alpine
     restart: unless-stopped

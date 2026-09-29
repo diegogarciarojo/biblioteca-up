@@ -1,6 +1,7 @@
 import uuid
 from pathlib import Path
 
+from django.conf import settings
 from django.db import models
 
 
@@ -55,3 +56,37 @@ class BookPageText(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["book", "page_number"], name="unique_book_page_text")]
+
+
+class BookRequest(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "En espera"
+        PROCESSING = "processing", "Procesando"
+        COMPLETED = "completed", "Completado"
+        FAILED = "failed", "Fallido"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="book_requests")
+    title = models.CharField("título", max_length=240)
+    author = models.CharField("autor", max_length=180, blank=True)
+    encrypted_viewer_url = models.TextField("URL cifrada del visor", blank=True)
+    status = models.CharField("estado", max_length=12, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    pages_done = models.PositiveIntegerField("páginas procesadas", default=0)
+    total_pages = models.PositiveIntegerField("páginas totales", default=0)
+    error_message = models.CharField("mensaje de error", max_length=500, blank=True)
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name="requests")
+    created_at = models.DateTimeField("fecha de solicitud", auto_now_add=True)
+    updated_at = models.DateTimeField("última actualización", auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(status__in=["queued", "processing"]),
+                name="one_active_book_request_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return self.title

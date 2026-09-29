@@ -1,8 +1,14 @@
 from django.urls import path
-from . import views
+from . import request_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("privacidad/", request_views.privacy, name="privacy"),
+    path("solicitar/", request_views.request_book, name="request_book"),
+    path("solicitar/acceso/", request_views.student_login, name="student_login"),
+    path("solicitar/acceso/callback/", request_views.student_callback, name="student_callback"),
+    path("solicitar/<uuid:request_id>/", request_views.request_book_wait, name="request_book_wait"),
+    path("solicitar/<uuid:request_id>/estado/", request_views.request_book_status, name="request_book_status"),
     path("login", views.login_view, name="login"),
     path("login/", views.login_view),
     path("salir/", views.logout_view, name="logout"),

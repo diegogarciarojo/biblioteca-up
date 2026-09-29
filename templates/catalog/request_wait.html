@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Preparando libro · Biblioteca UP{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/request.css' %}"><script src="{% static 'js/request.js' %}" defer></script>{% endblock %}
+{% block content %}
+<section id="request-wait" class="request-wait container" data-status-url="{{ status_url }}" data-login-url="{% url 'student_login' %}" aria-labelledby="request-wait-title">
+  <div class="request-wait-content">
+    <div class="request-wait-mark" aria-hidden="true"><span class="request-wait-page request-wait-page-back"></span><span class="request-wait-page request-wait-page-front"></span><span class="request-wait-orbit"></span></div>
+    <h1 id="request-wait-title">Estamos preparando tu libro.</h1>
+    <p class="request-wait-book">{{ book_request.title }}</p>
+    <p id="request-status-text" class="request-status-text" role="status" aria-live="polite">La solicitud está en espera. La descarga se procesará en segundo plano.</p>
+    <div class="request-progress-wrap">
+      <progress id="request-progress" class="request-progress" max="100" aria-label="Progreso de la descarga"></progress>
+      <span id="request-progress-label" class="request-progress-label">Comprobando el estado…</span>
+    </div>
+    <blockquote id="request-quote" class="request-quote">“Cada libro abre una nueva posibilidad.”</blockquote>
+    <div id="request-wait-actions" class="request-wait-actions" hidden>
+      <a id="request-wait-login" class="button button-dark" href="{% url 'student_login' %}" hidden>Volver a iniciar sesión</a>
+      <a class="button button-outline" href="{% url 'request_book' %}">Hacer otra solicitud</a>
+    </div>
+    <a class="request-wait-home" href="{% url 'home' %}">Volver al catálogo</a>
+  </div>
+</section>
+{% endblock %}

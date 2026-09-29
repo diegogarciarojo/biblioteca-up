@@ -4,6 +4,8 @@
 __pycache__
 *.pyc
 data
+data-local-test
+.impeccable
 staticfiles
 deploy/Caddyfile.runtime
 .pytest_cache

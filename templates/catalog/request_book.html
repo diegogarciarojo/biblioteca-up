@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Solicitar libro · Biblioteca UP{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/request.css' %}"><script src="{% static 'js/request.js' %}" defer></script>{% endblock %}
+{% block content %}
+<section class="request-page container" aria-labelledby="request-title">
+  <a class="back-link" href="{% url 'home' %}">← Volver a la biblioteca</a>
+  <header class="request-intro">
+    <h1 id="request-title">Solicitar un libro</h1>
+    <p>Encuentra el recurso de la UP, comparte el enlace de su visor y prepararemos el libro para leerlo aquí.</p>
+  </header>
+
+  <div class="request-layout">
+    <div class="request-main">
+      <section class="request-step" aria-labelledby="request-search-title">
+        <div class="request-step-heading"><span class="request-step-number" aria-hidden="true">1</span><div><h2 id="request-search-title">Busca en Inventio</h2><p>Se abrirá el buscador de recursos en línea de la universidad.</p></div></div>
+        <a id="request-search-link" class="button button-outline request-search-link" href="{{ search_url }}" target="_blank" rel="noopener noreferrer" aria-label="Abrir buscador de la UP en una ventana nueva">Abrir buscador de la UP <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5h11v11M19 5 8 16M17 19H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <p class="request-step-note">Abre el recurso y elige <strong>Visualización en línea</strong>. Copia la dirección del visor que se abra.</p>
+      </section>
+
+      <section class="request-step" aria-labelledby="request-submit-title">
+        <div class="request-step-heading"><span class="request-step-number" aria-hidden="true">2</span><div><h2 id="request-submit-title">Envía el enlace del visor</h2><p>El enlace debe ser del visor del libro, no de la página de resultados de Inventio.</p></div></div>
+        {% if form_error %}<div class="request-alert" role="alert">{{ form_error }}</div>{% endif %}
+        <form id="request-form" class="request-form stack-form" method="post" action="{% url 'request_book' %}">{% csrf_token %}
+          <label for="request-title-input">Título <span>*</span></label>
+          <input id="request-title-input" name="title" type="text" maxlength="240" autocomplete="off" value="{{ form_title|default:'' }}" required>
+          <label for="request-author-input">Autor <span class="request-optional">(opcional)</span></label>
+          <input id="request-author-input" name="author" type="text" maxlength="180" autocomplete="off" value="{{ form_author|default:'' }}">
+          <label for="request-url-input">Enlace del visor <span>*</span></label>
+          <input id="request-url-input" name="viewer_url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://ebooks724.up.elogim.com/visorBook.aspx?..." aria-describedby="request-url-help" required>
+          <p id="request-url-help" class="request-field-help">Pega la dirección que aparece al visualizar el libro en línea.</p>
+          {% if not student_authenticated %}<p class="request-form-gate">{% if google_oauth_configured %}Inicia sesión con Google para enviar la solicitud.{% else %}El envío estará disponible cuando se habilite el acceso institucional.{% endif %}</p>{% endif %}
+          <button class="button button-dark request-submit" type="submit" {% if not student_authenticated %}disabled{% endif %}>Procesar solicitud <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+    </div>
+
+    <aside class="request-access" aria-labelledby="request-access-title">
+      <span class="request-access-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.7 20 6v5.6c0 5.1-3.4 8.5-8 10.1-4.6-1.6-8-5-8-10.1V6l8-3.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m8.6 12.1 2.2 2.2 4.6-4.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <h2 id="request-access-title">Acceso a Biblioteca UP</h2>
+      {% if student_authenticated %}
+        <p>Tu sesión de Biblioteca UP está lista. Puedes enviar la solicitud.</p>
+        <span class="request-access-state">Sesión activa</span>
+      {% elif google_oauth_configured %}
+        <p>Inicia sesión con tu cuenta de la UP antes de enviar la solicitud.</p>
+        <a class="button button-outline request-login" href="{% url 'student_login' %}">Entrar con Google <span aria-hidden="true">↗</span></a>
+      {% else %}
+        <p>El inicio de sesión universitario aún no está disponible. Puedes consultar Inventio mientras se habilita.</p>
+      {% endif %}
+      <p class="request-access-detail">La descarga se procesa en el servidor. No necesitas instalar extensiones. Este acceso no inicia sesión en Inventio.</p>
+      <p class="request-access-detail"><a href="{% url 'privacy' %}">Cómo se guardan tus datos</a></p>
+    </aside>
+  </div>
+</section>
+{% endblock %}

@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Explorar libros · Biblioteca UP{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/request.css' %}">{% endblock %}
 {% block content %}
 <section class="hero container">
   <div class="hero-copy">
@@ -12,6 +14,10 @@
       <input id="book-search" name="q" value="{{ query }}" placeholder="Buscar por título, autor o tema…" autocomplete="off">
       <button type="submit">Buscar <span aria-hidden="true">→</span></button>
     </form>
+    <div class="hero-request">
+      <a class="button button-outline request-cta" href="{% url 'request_book' %}">Solicitar libro <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+      <span>¿No lo encuentras aquí? Búscalo en los recursos en línea de la UP.</span>
+    </div>
     <div class="hero-foot"><span class="round-sparkle" aria-hidden="true">{% include 'includes/sparkle.html' %}</span><span><strong>{{ total_books }}</strong> libro{{ total_books|pluralize }} disponible{{ total_books|pluralize }}</span></div>
   </div>
   <div class="hero-art" aria-hidden="true">
